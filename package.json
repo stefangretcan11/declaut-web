@@ -16,8 +16,10 @@
     "test:auth": "playwright test",
     "keys:export": "node scripts/export-public-keys.mjs",
     "auth:configure": "node scripts/configure-auth.mjs",
+    "demo:create": "node --env-file=.env.local scripts/create-demo-account.mjs",
     "keys:generate": "node scripts/generate-license-key.mjs",
-    "check:supabase": "node --env-file=.env.local scripts/check-supabase.mjs"
+    "check:supabase": "node --env-file=.env.local scripts/check-supabase.mjs",
+    "check:deployment": "node scripts/check-deployment.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -27,6 +29,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
+    "stripe": "^23.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -162,3 +162,40 @@ test("Simultaneous requests grant exactly two Pro devices and the third gets Fre
   await admin.query("delete from public.devices where user_id = $1 and device_id = $2", [user, rows[0].device_id]);
   assert.equal((await resolve(user, rows[2].device_id)).plan, "pro");
 });
+
+test("Unknown Stripe prices cannot grant Pro through the database resolver", async () => {
+  const user = await newUser();
+  const id = await subscription(user);
+  await admin.query("update public.subscriptions set is_pro = false where id = $1", [id]);
+  assert.equal((await resolve(user, "unknown-price")).plan, "free");
+});
+
+test("Device removal is server-only, owner-scoped and idempotent", async () => {
+  const owner = await newUser();
+  const foreign = await newUser();
+  await resolve(owner, "own-device"); await resolve(foreign, "foreign-device");
+  const ownId = (await admin.query("select id from public.devices where user_id = $1", [owner])).rows[0].id;
+  const foreignId = (await admin.query("select id from public.devices where user_id = $1", [foreign])).rows[0].id;
+  const browser = await session("authenticated", owner);
+  try { await assert.rejects(browser.query("select public.remove_own_device($1, $2)", [owner, ownId]), /permission denied/); }
+  finally { await browser.end(); }
+  const server = await session("service_role");
+  try {
+    assert.equal((await server.query("select public.remove_own_device($1, $2) as removed", [owner, foreignId])).rows[0].removed, false);
+    assert.equal((await server.query("select public.remove_own_device($1, $2) as removed", [owner, ownId])).rows[0].removed, true);
+    assert.equal((await server.query("select public.remove_own_device($1, $2) as removed", [owner, ownId])).rows[0].removed, false);
+  } finally { await server.end(); }
+  assert.equal((await admin.query("select id from public.devices where id = $1", [foreignId])).rowCount, 1);
+});
+
+test("Removing a Pro device while another refreshes frees the slot on the next request", async () => {
+  const user = await newUser(); await subscription(user);
+  await resolve(user, "first"); await resolve(user, "second"); await resolve(user, "third");
+  const firstId = (await admin.query("select id from public.devices where user_id = $1 and device_id = 'first'", [user])).rows[0].id;
+  const server = await session("service_role");
+  try {
+    await Promise.all([server.query("select public.remove_own_device($1, $2)", [user, firstId]), resolve(user, "third")]);
+    assert.equal((await resolve(user, "third")).plan, "pro");
+    assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 2);
+  } finally { await server.end(); }
+});

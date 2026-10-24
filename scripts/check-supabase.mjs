@@ -27,7 +27,7 @@ try {
   console.log("Server key: check failed (configuration or connectivity)");
   failed = true;
 }
-for (const table of ["profiles", "subscriptions", "devices"]) {
+for (const table of ["profiles", "subscriptions", "devices", "billing_invoices"]) {
   const { error } = await admin.from(table).select("id").limit(0);
   if (error) {
     console.log(`${table}: unavailable (code ${error.code ?? "unknown"}; migration may not be applied)`);
@@ -40,17 +40,20 @@ try {
   const schema = await response.json();
   const required = {
     profiles: ["id", "email", "company_name", "cui", "stripe_customer_id", "terms_accepted_at", "terms_version", "created_at"],
-    subscriptions: ["id", "user_id", "status", "price_id", "current_period_start", "current_period_end", "cancel_at_period_end", "updated_at"],
+    subscriptions: ["id", "user_id", "status", "price_id", "current_period_start", "current_period_end", "cancel_at_period_end", "is_pro", "updated_at"],
     devices: ["id", "user_id", "device_id", "device_name", "created_at", "last_seen_at"],
+    billing_invoices: ["id", "user_id", "subscription_id", "status", "currency", "amount_paid", "stripe_invoice_number", "stripe_hosted_invoice_url", "fiscal_status", "fiscal_number", "fiscal_pdf_url", "created_at"],
   };
   for (const [table, columns] of Object.entries(required)) {
     const { error } = await admin.from(table).select(columns.join(",")).limit(0);
     console.log(`${table} schema: ${error ? `not compatible (code ${error.code ?? "unknown"})` : "compatible"}`);
     if (error) failed = true;
   }
-  const hasRpc = Boolean(schema.paths?.["/rpc/resolve_device_license"]);
-  console.log(`License RPC: ${hasRpc ? "available" : "missing — apply migration"}`);
-  if (!hasRpc) failed = true;
+  for (const name of ["resolve_device_license", "remove_own_device", "bind_billing_customer", "reserve_billing_checkout", "begin_billing_sync", "apply_billing_sync"]) {
+    const exists = Boolean(schema.paths?.[`/rpc/${name}`]);
+    console.log(`${name} RPC: ${exists ? "available" : "missing — apply migration"}`);
+    if (!exists) failed = true;
+  }
 } catch { console.log("Schema compatibility: inspection unavailable"); failed = true; }
 const { error: anonymousError } = await publicClient.from("profiles").select("id").limit(0);
 if (!anonymousError) { console.log("Anonymous profile access: unexpectedly allowed"); failed = true; }

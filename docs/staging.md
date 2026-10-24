@@ -10,7 +10,7 @@ This URL identifies a specific deployment. Choose a stable staging domain pointi
 
 ## Record the manually applied migration
 
-This step is complete for the current staging project: both the initial schema and signup-consent migration are recorded remotely. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
+This step is complete for the current staging project: all four committed migrations (schema, signup consent, billing storage, device removal) are applied and recorded remotely. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
 
 The initial SQL migration was applied in the Supabase SQL Editor and verified against the staging API. SQL Editor execution does not add it to the CLI migration history. Before pushing this migration to a GitHub branch with automatic Supabase deployment, record version `20261024000000` as applied so it will not try to create the tables again.
 
@@ -45,11 +45,12 @@ References: [Supabase migration repair](https://supabase.com/docs/reference/cli/
 | `LICENSE_KEY_ID` | Key ID from the generated environment file |
 | `LICENSE_ISSUER` | `declaut-staging` |
 | `LICENSE_AUDIENCE` | `declaut-desktop` |
-| `GITHUB_RELEASES_REPO` | Optional `owner/repo` when Track B publishes |
-| `GITHUB_RELEASE_ASSET_NAME` | Optional exact installer filename |
+| `GITHUB_RELEASES_REPO` | `mihaicostache1/declaut-release` |
+| `GITHUB_RELEASE_ASSET_NAME` | `declaut-setup.exe` |
+| `GITHUB_RELEASE_CHANNEL` | `preview` on staging to include the current `v0.9.0-rc1`; production stays `stable` |
 
 5. Use staging credentials for every deployment environment in this dedicated staging project. Vercel calls the main branch deployment “Production”; that label does not make it the Declaut production environment. Use a separate project and secrets for real production later.
-6. Select a Frankfurt function region if supported by your plan, to keep the API close to Supabase.
+6. Use Dublin (`dub1`) for backend functions, matching the Supabase project in Ireland (`eu-west-1`). This is declared in `vercel.json` and applies on the next deployment.
 7. Deploy or redeploy after changing environment variables.
 8. Ensure Track B can reach `/api/license` without an interactive Vercel login. Configure deployment protection for this dedicated staging project as needed; the API itself still requires a Supabase bearer token. Do not embed a Vercel deployment-protection bypass secret in the desktop app.
 9. Set `SITE_URL=https://declaut-web.vercel.app` for auth-email redirects on this staging project. Deploy the auth branch to that stable domain. The account/email setup and current SMTP/template limitation are described in [accounts and email](accounts-and-email.md).
@@ -78,7 +79,7 @@ It uses the credentials in the local `.env.local`, creates temporary test fixtur
 
 The read-only project check confirmed email confirmation is required. Before adding auth pages:
 
-- Verify the project region is Frankfurt.
+- Keep the existing project in Ireland (`eu-west-1`); no region migration is planned.
 - Set the staging application's URL and the exact auth callback/reset redirect URLs in Supabase. The repository's `config.toml` contains local defaults; persistent GitHub-connected projects may not automatically apply auth settings.
 - Configure custom SMTP and verify the sender domain. The auth pages are implemented and browser-tested against staging, but actual email delivery remains to be verified after SMTP setup. See [the account setup guide](accounts-and-email.md).
 

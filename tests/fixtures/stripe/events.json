@@ -1,0 +1,8 @@
+[
+  { "id": "evt_checkout", "type": "checkout.session.completed", "livemode": false, "data": { "object": { "id": "cs_test_fixture", "subscription": "sub_untrusted", "client_reference_id": "untrusted" } } },
+  { "id": "evt_created", "type": "customer.subscription.created", "livemode": false, "data": { "object": { "id": "sub_fixture", "status": "canceled" } } },
+  { "id": "evt_updated", "type": "customer.subscription.updated", "livemode": false, "data": { "object": { "id": "sub_fixture", "status": "canceled" } } },
+  { "id": "evt_deleted", "type": "customer.subscription.deleted", "livemode": false, "data": { "object": { "id": "sub_fixture", "status": "active" } } },
+  { "id": "evt_paid", "type": "invoice.paid", "livemode": false, "data": { "object": { "id": "in_fixture", "subscription": "sub_untrusted", "status": "open" } } },
+  { "id": "evt_failed", "type": "invoice.payment_failed", "livemode": false, "data": { "object": { "id": "in_fixture", "subscription": "sub_untrusted", "status": "paid" } } }
+]

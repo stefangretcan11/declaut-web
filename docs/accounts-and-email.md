@@ -4,17 +4,17 @@
 
 | Item | State |
 | --- | --- |
-| Existing staging Supabase | Working; project ref `jdvurtohbypdlvkirnrm`, region `eu-west-1` (Ireland). Owner chose to keep it for now. |
-| Staging migrations | Both `20261024000000` and `20261024010000` are recorded and applied. |
+| Existing staging Supabase | Working; project ref `jdvurtohbypdlvkirnrm`, region `eu-west-1` (Ireland). Owner chose to keep Ireland. |
+| Staging migrations | Initial schema, signup consent, billing storage and device removal (`20261024000000` through `20261024030000`) are recorded and applied. |
 | Hosted auth settings | Stable site URL, exact callback URLs, 12-character password minimum and required email confirmation applied through the existing CLI login. |
-| Vercel application | Existing project and verified license deployment. Owner identified `https://declaut-web.vercel.app` as the stable domain to use. New auth pages still need deployment to that domain. |
+| Vercel application | Existing project and verified license deployment. Owner identified `https://declaut-web.vercel.app` as the stable domain to use. New account/marketing/auth/billing code still needs deployment to that domain. |
 | Staging signing key | Generated, tested, private material ignored by Git. |
 | Production signing key | Generated separately; private material in ignored `.keys/production/` and `.env.declaut-production.local`. |
 | Public key handoff | Both keys are exported in `docs/license-public-keys.json`. |
-| Frankfurt projects | Deferred at the owner's request; instructions below. |
+| Region plan | Keep staging in Ireland, create future production in Ireland, and deploy Vercel backend functions to Dublin (`dub1`). |
 | Custom domain | Not owned yet. The Vercel domain is sufficient for the staging website but cannot be used to verify a custom email sender. |
 | Custom SMTP | Pending domain ownership and an email-provider account. Supabase blocks the prepared custom templates until SMTP is configured on this free project. |
-| Stripe account | Pending owner signup; use a sandbox/test environment once created. No live payment integration is enabled. |
+| Stripe account | Pending owner signup. Checkout/portal/webhook code and fixture tests are implemented; actual sandbox acceptance is pending. Live payments remain disabled until fiscal invoicing is implemented. |
 
 ## Set up the email account
 
@@ -77,19 +77,19 @@ Sources: [Supabase email templates](https://supabase.com/docs/guides/auth/auth-e
 
 1. Create the account at [Stripe](https://dashboard.stripe.com/register) using the owner's real account details.
 2. Use a sandbox or test environment, and keep any API keys in an ignored local file/password manager. Do not enable live checkout yet.
-3. A5 will add Declaut Pro products/prices, checkout, portal and webhooks. A6 handles fiscal invoices before live payments.
+3. Follow [the billing setup guide](billing.md) to create Declaut Pro with the approved 300 RON / six-month and 500 RON / yearly recurring prices, then configure the existing checkout/portal/webhook integration. A6 handles fiscal invoices before live payments.
 
 Source: [Stripe testing and sandboxes](https://docs.stripe.com/testing).
 
-## Frankfurt staging and production later
+## Production setup in Ireland
 
-1. In the Supabase organization, check the plan's project quota before creating anything. Create `declaut-staging` and `declaut-production` in **Frankfurt / `eu-central-1`** when capacity and billing are agreed.
-2. Keep the working Ireland project until the replacement has passed the same tests. A fresh project is a separate environment; changing an application environment variable does not move an existing database to Frankfurt.
-3. Connect each project to the intended repository/branch workflow and apply all committed migrations normally. Do not mark an unapplied migration as applied.
-4. Configure confirmation requirements, SMTP, templates and exact site/callback URLs separately for both projects. Production should use the final commercial terms/version rather than the current staging agreement.
-5. Keep a separate production Vercel project and secrets. Production uses the generated production key/issuer, and its own Supabase project. `.env.declaut-production.local` is a secret source for that setup, not a file to load into staging.
-6. Verify Free/Pro tokens, device allocation, grace periods, row access and email/password flows in the new staging environment, then hand the new staging URL and publishable key to Track B.
-7. Switch the stable staging domain only after verification. Migrate any real user data through a deliberate migration plan; the current automated smoke-test fixtures are disposable.
+1. Keep the existing staging project. No region migration or replacement staging project is needed.
+2. Before creating the separate `declaut-production` Supabase project, check the organization's project quota and billing. Choose **West EU (Ireland) / `eu-west-1`** when creating it.
+3. Connect production to the intended repository/branch workflow and apply all committed migrations normally. Do not mark an unapplied migration as applied.
+4. Configure confirmation requirements, SMTP, templates and exact site/callback URLs separately for staging and production. Production should use the final commercial terms/version rather than the current staging agreement.
+5. Keep a separate production Vercel project and secrets. Production uses the generated production key/issuer and its own Supabase project. `.env.declaut-production.local` is a secret source for that setup, not a file to load into staging.
+6. Deploy backend functions to Dublin (`dub1`) alongside the Ireland database; this is declared in `vercel.json` and takes effect when deployed. Verify Free/Pro tokens, device allocation, grace periods, row access and email/password flows in each environment.
+7. Hand Track B the current staging URL, publishable key, verified API URL and public signing key. Production uses its separate credentials when ready for launch.
 
 ## A3 acceptance checks
 

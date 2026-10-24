@@ -18,6 +18,8 @@ Content-Type: application/json
 
 Store the access and refresh tokens in the desktop platform's secure credential storage. Refresh sessions through Supabase Auth; a license JWT is not a Supabase access token.
 
+The distributable staging URL, publishable key and verification JWK are available in [track-b-public-config.json](track-b-public-config.json), with usage and acceptance steps in [the Track B handoff](track-b-handoff.md). Its reference deployment was verified on the recorded date; verify the stable domain before switching the desktop integration.
+
 ## Request
 
 ```http
@@ -52,7 +54,7 @@ curl --fail-with-body "$API_URL/api/license" \
 }
 ```
 
-`latest_version` and `download_url` are independently nullable until a stable release with an unambiguous Windows installer is available. Release outages do not block licensing. Responses have `Cache-Control: no-store`.
+`latest_version` and `download_url` are independently nullable until an eligible release with an unambiguous Windows installer is available. Production uses stable releases; staging can explicitly opt into preview releases, in which case versions can include suffixes such as `0.9.0-rc1`. Release outages do not block licensing. Responses have `Cache-Control: no-store`.
 
 ## Signed token
 
@@ -87,9 +89,11 @@ The first two registered devices, ordered by `created_at` then internal `id`, re
 
 An issued JWT remains usable until expiry. Device removal or an immediate subscription change does not revoke an offline token. Removing and registering devices can therefore temporarily leave more than two unexpired Pro tokens; strict real-time revocation would require a different online-validation contract.
 
+Account-page removal releases a registration slot; it is not a permanent installation ban. A removed installation can register again when it next calls `/api/license`. The desktop should refresh after online account changes while keeping the documented expiration boundary for offline operation.
+
 ## Release metadata
 
-Set `GITHUB_RELEASES_REPO=owner/repo`. Read GitHub's latest stable release. Strip a leading `v` before a numeric version. Set `GITHUB_RELEASE_ASSET_NAME` if a release contains multiple `.exe` files. Only HTTPS download URLs under the configured GitHub repository are accepted.
+Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release` and `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe`. By default, read GitHub's latest stable release. Staging may opt into `GITHUB_RELEASE_CHANNEL=preview`, selecting the newest published non-draft entry from the latest 30 releases, including prereleases. The option is honored only when the issuer is `declaut-staging`; production always uses the stable feed. Strip a leading `v` before a numeric version and preserve prerelease suffixes. Only credential-free HTTPS download URLs under the configured GitHub repository are accepted.
 
 Successful results are cached for one hour with Next.js fetch caching and an instance cache. Failed refreshes reuse the instance's last success when available, otherwise return null metadata; retries are throttled to one minute. A cold server instance may have no fallback.
 

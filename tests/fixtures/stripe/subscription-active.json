@@ -1,0 +1,15 @@
+{
+  "id": "sub_fixture",
+  "object": "subscription",
+  "customer": "cus_fixture",
+  "status": "active",
+  "cancel_at_period_end": false,
+  "items": {
+    "data": [{
+      "id": "si_fixture",
+      "current_period_start": 1792800000,
+      "current_period_end": 1808352000,
+      "price": { "id": "price_semiannual_fixture", "active": true, "currency": "ron", "unit_amount": 30000, "recurring": { "interval": "month", "interval_count": 6 } }
+    }]
+  }
+}
