@@ -23,7 +23,7 @@ References: [Supabase migration repair](https://supabase.com/docs/reference/cli/
 
 1. Commit and push the application after recording the staging migration history.
 2. In Vercel, import the GitHub repository as a dedicated staging project, for example `declaut-staging`.
-3. Select the Next.js framework, repository root, Node.js 24, and the normal `npm run build` command. Deploy with the lockfile.
+3. Select the Next.js framework, repository root, Node.js 24, and the normal `npm run build` command. Turn off the Output Directory override so Vercel uses the Next.js default. The repository's `vercel.json` explicitly selects Next.js and resets the output directory to its framework default. Deploy with the lockfile.
 4. In the project's environment variables, copy these **values from the local staging `.env.local`**:
 
 | Variable | Exposure |
