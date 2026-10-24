@@ -1,6 +1,16 @@
 # Staging setup and Track B handoff
 
+## Verified hosted deployment
+
+On 2026-10-24, `https://declaut-f7vs3twun-declaut.vercel.app` passed `npm run test:staging` against the configured staging Supabase project. The homepage returned HTTP 200; an unauthenticated license request returned HTTP 401 with the application's `unauthorized` code.
+
+The authenticated test verified Free and Pro JWT signatures with the local staging public key, two Pro devices with a third Free device and the limit flag, Pro inside the 72-hour past-due grace period and Free after it, own-profile reads, rejected direct subscription writes, and rejected invalid access tokens. The temporary account and its subscription/devices were removed. Email delivery and release metadata were not verified.
+
+This URL identifies a specific deployment. Choose a stable staging domain pointing to a verified deployment before the Track B handoff; test that domain with the same command below.
+
 ## Record the manually applied migration
+
+This step is complete for the current staging project: both the initial schema and signup-consent migration are recorded remotely. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
 
 The initial SQL migration was applied in the Supabase SQL Editor and verified against the staging API. SQL Editor execution does not add it to the CLI migration history. Before pushing this migration to a GitHub branch with automatic Supabase deployment, record version `20261024000000` as applied so it will not try to create the tables again.
 
@@ -42,8 +52,17 @@ References: [Supabase migration repair](https://supabase.com/docs/reference/cli/
 6. Select a Frankfurt function region if supported by your plan, to keep the API close to Supabase.
 7. Deploy or redeploy after changing environment variables.
 8. Ensure Track B can reach `/api/license` without an interactive Vercel login. Configure deployment protection for this dedicated staging project as needed; the API itself still requires a Supabase bearer token. Do not embed a Vercel deployment-protection bypass secret in the desktop app.
+9. Set `SITE_URL=https://declaut-web.vercel.app` for auth-email redirects on this staging project. Deploy the auth branch to that stable domain. The account/email setup and current SMTP/template limitation are described in [accounts and email](accounts-and-email.md).
 
 References: [Next.js on Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs), [Vercel environment variables](https://vercel.com/docs/environment-variables).
+
+## Build cannot find an entrypoint
+
+If Vercel reports `No entrypoint found` and suggests `app.js`, `index.js` or `server.js`, inspect the deployment's source branch and commit before changing application files.
+
+The initial application and Vercel configuration were committed on `feat/staging-license-api`, with the Vercel fix at `d9132bf`. At setup time, `main` still contained only the initial README. Redeploying that older source will not include the application or `vercel.json`.
+
+Create a deployment from `feat/staging-license-api` (or the branch where it has since been merged), with the repository root as Root Directory, the Next.js framework preset, and the default output directory. Verify that the deployment source includes `package.json`, `vercel.json`, and `src/app/api/license/route.ts`. A Next.js application does not require a standalone server entry in `package.json`.
 
 ## Verify the deployment
 
@@ -61,7 +80,7 @@ The read-only project check confirmed email confirmation is required. Before add
 
 - Verify the project region is Frankfurt.
 - Set the staging application's URL and the exact auth callback/reset redirect URLs in Supabase. The repository's `config.toml` contains local defaults; persistent GitHub-connected projects may not automatically apply auth settings.
-- Configure custom SMTP and verify the sender domain. Test actual confirmation and reset emails when the auth pages are implemented.
+- Configure custom SMTP and verify the sender domain. The auth pages are implemented and browser-tested against staging, but actual email delivery remains to be verified after SMTP setup. See [the account setup guide](accounts-and-email.md).
 
 ## Hand off to Track B
 

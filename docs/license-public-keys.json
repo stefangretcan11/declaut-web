@@ -1,0 +1,26 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "qSXLBYW_WcNCbofNripjbhFBXoCT7uB8xEDFyIT3Y88",
+      "kid": "staging-aff45a1685a6",
+      "alg": "EdDSA",
+      "use": "sig",
+      "environment": "staging",
+      "issuer": "declaut-staging",
+      "audience": "declaut-desktop"
+    },
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "GHO9Qr1a1R15mcOYLbYfdo1T7gnZkmXBze_MtQBiA4k",
+      "kid": "production-656ad39d72c8",
+      "alg": "EdDSA",
+      "use": "sig",
+      "environment": "production",
+      "issuer": "declaut-production",
+      "audience": "declaut-desktop"
+    }
+  ]
+}

@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 
 const environment = process.argv[2] ?? "staging";
 if (!["staging", "production"].includes(environment)) throw new Error("Use staging or production");
-const envPath = resolve(environment === "staging" ? ".env.local" : ".env.production.local");
+// Keep production secrets outside Next.js's automatically loaded env filenames.
+// A local production build of staging must keep its staging signing identity.
+const envPath = resolve(environment === "staging" ? ".env.local" : ".env.declaut-production.local");
 const directory = resolve(".keys", environment);
 const envText = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
 if (existsSync(resolve(directory, "private.pem")) || /^LICENSE_PRIVATE_KEY_BASE64=.+/m.test(envText)) {

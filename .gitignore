@@ -12,3 +12,6 @@ coverage/
 supabase/.temp/
 supabase/.branches/
 .keys/
+test-results/
+playwright-report/
+.artifacts/

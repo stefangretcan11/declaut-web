@@ -7,6 +7,12 @@ const supabaseSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 });
 
+export function publicSupabaseEnv() {
+  const result = supabaseSchema.omit({ SUPABASE_SERVICE_ROLE_KEY: true }).safeParse(process.env);
+  if (!result.success) throw new Error("Supabase public configuration is incomplete");
+  return result.data;
+}
+
 export function supabaseEnv() {
   const result = supabaseSchema.safeParse(process.env);
   if (!result.success) throw new Error("Supabase server configuration is incomplete");

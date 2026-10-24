@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
 
@@ -38,7 +38,10 @@ before(async () => {
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   `);
   await admin.query("insert into auth.users (id, email) values ($1, 'existing@example.test')", [backfilledId]);
-  await admin.query(readFileSync(new URL("../../supabase/migrations/20261024000000_accounts_and_licenses.sql", import.meta.url), "utf8"));
+  const migrationDir = new URL("../../supabase/migrations/", import.meta.url);
+  for (const file of readdirSync(migrationDir).filter((name) => name.endsWith(".sql")).sort()) {
+    await admin.query(readFileSync(new URL(file, migrationDir), "utf8"));
+  }
 }, { timeout: 30_000 });
 
 after(async () => {
@@ -80,6 +83,19 @@ test("Migration backfills existing users; signup trigger creates a profile", asy
   const { rows } = await admin.query("select * from public.profiles where id = $1", [user]);
   assert.equal(rows[0].company_name, "Test SRL");
   assert.equal(rows[0].cui, "RO1234");
+});
+
+test("Signup records consent with a server timestamp and never invents legacy consent", async () => {
+  const user = randomUUID();
+  await admin.query("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'consent@example.test', $2)", [user, { terms_accepted: true, terms_version: "2026-10-24-staging", company_name: "Test SRL", cui: "RO1234" }]);
+  const { rows } = await admin.query("select terms_accepted_at, terms_version from public.profiles where id = $1", [user]);
+  assert.equal(rows[0].terms_version, "2026-10-24-staging");
+  assert.ok(Math.abs(Date.now() - rows[0].terms_accepted_at.getTime()) < 10000);
+  const legacy = await admin.query("select terms_accepted_at from public.profiles where id = $1", [backfilledId]);
+  assert.equal(legacy.rows[0].terms_accepted_at, null);
+  const invalidVersion = randomUUID();
+  await admin.query("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'wrong-version@example.test', $2)", [invalidVersion, { terms_accepted: true, terms_version: "unknown" }]);
+  assert.equal((await admin.query("select terms_accepted_at from public.profiles where id = $1", [invalidVersion])).rows[0].terms_accepted_at, null);
 });
 
 test("RLS restricts all three tables to their owner; client writes and RPC are denied", async () => {
