@@ -1,0 +1,13 @@
+{
+  "id": "in_fixture",
+  "object": "invoice",
+  "customer": "cus_fixture",
+  "status": "paid",
+  "currency": "ron",
+  "amount_paid": 30000,
+  "number": "STRIPE-FIXTURE-001",
+  "hosted_invoice_url": "https://invoice.stripe.com/i/fixture",
+  "invoice_pdf": "https://pay.stripe.com/invoice/fixture/pdf",
+  "created": 1792800000,
+  "parent": { "type": "subscription_details", "subscription_details": { "subscription": "sub_fixture" } }
+}

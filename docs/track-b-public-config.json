@@ -1,0 +1,38 @@
+{
+  "contract": "license-v1-proposed",
+  "environment": "staging",
+  "supabaseUrl": "https://jdvurtohbypdlvkirnrm.supabase.co",
+  "supabasePublishableKey": "sb_publishable_eFEQKSWIOOib5ozUMHIEpg_yFD-xliR",
+  "apiBaseUrl": "https://declaut-f7vs3twun-declaut.vercel.app",
+  "stableApiBaseUrl": "https://declaut-web.vercel.app",
+  "referenceVerifiedOn": "2026-10-24",
+  "stableDomainVerification": "pending",
+  "license": {
+    "issuer": "declaut-staging",
+    "audience": "declaut-desktop",
+    "version": 1,
+    "maxLifetimeSeconds": 86400,
+    "publicKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "qSXLBYW_WcNCbofNripjbhFBXoCT7uB8xEDFyIT3Y88",
+      "kid": "staging-aff45a1685a6",
+      "alg": "EdDSA",
+      "use": "sig"
+    }
+  },
+  "releaseMetadata": {
+    "repositoryConfigured": true,
+    "repository": "mihaicostache1/declaut-release",
+    "installerAsset": "declaut-setup.exe",
+    "stagingChannel": "preview",
+    "productionChannel": "stable",
+    "referenceVersion": "0.9.0-rc1",
+    "referenceVerifiedOn": "2026-10-24",
+    "hostedConfigurationPending": true,
+    "nullableFields": [
+      "latest_version",
+      "download_url"
+    ]
+  }
+}

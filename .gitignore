@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+coverage/
+.vercel/
+.env*
+!.env.example
+*.pem
+*.key
+.DS_Store
+*.tsbuildinfo
+supabase/.temp/
+supabase/.branches/
+.keys/
+test-results/
+playwright-report/
+.artifacts/

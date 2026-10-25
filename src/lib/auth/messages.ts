@@ -1,0 +1,17 @@
+export const authMessages: Record<string, string> = {
+  invalid_request: "Verifică informațiile introduse și încearcă din nou.",
+  invalid_credentials: "Adresa de email sau parola nu este corectă.",
+  confirmation_required: "Confirmă adresa de email înainte să te autentifici.",
+  confirmation_sent: "Verifică emailul pentru a confirma contul. Dacă ai deja un cont, te poți autentifica.",
+  reset_sent: "Dacă există un cont cu această adresă, vei primi un email pentru resetarea parolei.",
+  confirmation_resent: "Dacă acest cont așteaptă confirmarea, vei primi un nou email.",
+  invalid_link: "Linkul nu este valid sau a expirat. Solicită un email nou.",
+  password_updated: "Parola a fost schimbată. Autentifică-te cu noua parolă.",
+  same_password: "Alege o parolă diferită de cea folosită acum.",
+  weak_password: "Alege o parolă mai sigură, de cel puțin 12 caractere.",
+  rate_limited: "Ai făcut prea multe încercări. Așteaptă câteva minute și încearcă din nou.",
+  unavailable: "Serviciul nu este disponibil momentan. Încearcă din nou în câteva minute.",
+  signup_unavailable: "Înregistrarea nu este disponibilă momentan. Încearcă din nou mai târziu.",
+  session_required: "Deschide linkul din email sau autentifică-te pentru a schimba parola.",
+  signed_out: "Te-ai deconectat.",
+};

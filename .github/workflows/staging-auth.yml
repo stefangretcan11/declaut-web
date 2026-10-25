@@ -1,0 +1,73 @@
+name: Staging auth acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-auth-acceptance
+  cancel-in-progress: false
+
+jobs:
+  auth:
+    # Privileged staging credentials never run on pull requests or feature refs.
+    if: github.ref == 'refs/heads/main'
+    environment: staging-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LICENSE_PRIVATE_KEY_BASE64: ${{ secrets.LICENSE_PRIVATE_KEY_BASE64 }}
+      LICENSE_KEY_ID: ${{ secrets.LICENSE_KEY_ID }}
+      LICENSE_ISSUER: declaut-staging
+      LICENSE_AUDIENCE: declaut-desktop
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install dependencies
+        run: npm ci
+      - name: Prepare ignored local staging configuration
+        run: |
+          node --input-type=module <<'JS'
+          import { createPrivateKey, createPublicKey } from 'node:crypto';
+          import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+          const names = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'LICENSE_PRIVATE_KEY_BASE64', 'LICENSE_KEY_ID', 'LICENSE_ISSUER', 'LICENSE_AUDIENCE'];
+          const missing = names.filter((name) => !process.env[name]);
+          if (missing.length) throw new Error(`Missing staging environment secrets: ${missing.join(', ')}`);
+          const publicConfig = JSON.parse(readFileSync('docs/track-b-public-config.json', 'utf8'));
+          if (process.env.NEXT_PUBLIC_SUPABASE_URL !== publicConfig.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY !== publicConfig.supabasePublishableKey) throw new Error('Staging auth secrets do not match the distributed staging project configuration');
+          writeFileSync('.env.local', names.map((name) => `${name}=${JSON.stringify(process.env[name])}`).join('\n') + '\n', { mode: 0o600 });
+          const privatePem = Buffer.from(process.env.LICENSE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+          const privateKey = createPrivateKey(privatePem);
+          if (privateKey.asymmetricKeyType !== 'ed25519') throw new Error('Staging signing key must use Ed25519');
+          const publicKey = createPublicKey(privateKey);
+          const actual = publicKey.export({ format: 'jwk' });
+          const expected = publicConfig.license.publicKey;
+          if (process.env.LICENSE_KEY_ID !== expected.kid || actual.kty !== expected.kty || actual.crv !== expected.crv || actual.x !== expected.x) throw new Error('Staging signing key does not match the distributed public verification key');
+          mkdirSync('.keys/staging', { recursive: true, mode: 0o700 });
+          writeFileSync('.keys/staging/public.pem', publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o644 });
+          JS
+      - name: Check Chrome availability
+        run: google-chrome --version
+      - name: Production build for local browser acceptance
+        run: npm run build
+      - name: Confirmed login, recovery and REST license acceptance
+        run: npm run test:auth
+      - name: Remove local credential material
+        if: always()
+        run: |
+          node --input-type=module <<'JS'
+          import { rmSync } from 'node:fs';
+          rmSync('.env.local', { force: true });
+          rmSync('.keys', { recursive: true, force: true });
+          JS
