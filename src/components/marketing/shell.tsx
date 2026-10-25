@@ -24,6 +24,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
       <Link className="marketing-account-link" href="/account">Contul meu <span aria-hidden="true">↗</span></Link>
       <details className="marketing-mobile-navigation"><summary>Meniu <span aria-hidden="true">+</span></summary><nav aria-label="Navigație mobilă"><Navigation current={current} /><Link href="/account">Contul meu</Link></nav></details>
     </header>
+    <aside className="marketing-prerelease-notice" aria-label="Stadiul lansării"><strong>Versiune preliminară (pre-release)</strong><span>Declaut este în testare, înainte de lansarea stabilă.</span></aside>
     <div className="marketing-content" id="continut" tabIndex={-1}>{children}</div>
     <footer className="marketing-footer">
       <div className="marketing-footer-top"><div><Link className="wordmark" href="/">declaut<span>.</span></Link><p>Un flux de lucru mai simplu.</p></div><nav aria-label="Informații utile"><Link href="/termeni-si-conditii">Termeni și condiții</Link><Link href="/politica-de-confidentialitate">Confidențialitate</Link><Link href="/contact">Contact</Link></nav></div>
