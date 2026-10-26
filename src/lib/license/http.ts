@@ -61,7 +61,7 @@ export function createLicenseHandler(deps: Dependencies) {
       const signed = await deps.sign(user.id, device_id, entitlement);
       // Update metadata is optional; it must never prevent valid license issuance.
       const release = await deps.release().catch(() => ({ latest_version: null, download_url: null }));
-      return Response.json({ ...signed, plan: entitlement.plan, device_limit_reached: entitlement.device_limit_reached, ...release }, { headers });
+      return Response.json({ ...signed, plan: entitlement.plan, ...release }, { headers });
     } catch (error) {
       const known = error instanceof LicenseError;
       return Response.json({ error: { code: known ? error.code : "license_unavailable" } }, {

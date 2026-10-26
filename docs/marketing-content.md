@@ -25,6 +25,8 @@ The site uses the existing warm off-white/dark-green design, system typography, 
 
 The pricing CTA takes visitors to their account, where actual billing readiness is determined. Prices on the marketing page do not enable payments. The configured Stripe prices must match the approved RON amounts and six-month/yearly intervals before checkout is enabled.
 
+Free permits up to three firms. Pro has no per-account device cap, and each license remains bound to its requesting PC. Pricing, FAQ and account copy reflect this policy; apply `20261026000000_remove_device_limit.sql` before deploying it. This update does not change Pro's firm-limit claims.
+
 ## Content still required before launch
 
 - Real desktop screenshots from Track B. Current code-native previews are expressly labelled illustrative and use fictional data; they are not presented as shipped product screenshots or real ANAF responses.

@@ -13,6 +13,12 @@ test("Romanian marketing routes, navigation and release availability work on des
   await expect(page.locator(".marketing-pro-prices")).toContainText("300");
   await expect(page.locator(".marketing-pro-prices")).toContainText("500");
   await expect(page.locator(".marketing-pro-prices")).toContainText("6 luni");
+  await expect(page.locator(".marketing-plan").first()).toContainText("maximum 3 firme");
+  await expect(page.locator(".marketing-plan-pro")).toContainText("Fără limită de dispozitive");
+  await expect(page.locator(".marketing-comparison")).toContainText("Maximum 3");
+  await page.goto("/intrebari-frecvente");
+  await page.locator("summary").filter({ hasText: "Pe câte dispozitive pot folosi Pro?" }).click();
+  await expect(page.getByText("Nu există o limită de dispozitive per cont.", { exact: false })).toBeVisible();
   if (process.env.GITHUB_RELEASES_REPO && process.env.GITHUB_RELEASE_CHANNEL === "preview" && process.env.LICENSE_ISSUER === "declaut-staging") {
     await page.goto("/descarcare");
     await expect(page.getByRole("link", { name: "Descarcă instalatorul" })).toHaveAttribute("href", new RegExp(`^https://github\\.com/${process.env.GITHUB_RELEASES_REPO}/releases/download/`));

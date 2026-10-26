@@ -76,6 +76,6 @@ This code does **not** issue Romanian fiscal invoices or submit to e-Factura. A 
 - Signed fixture events use the real Stripe SDK signature verifier and dependency-injected handler factories; no payment-provider request is made.
 - Tests cover all six event types, tampered bodies/signatures, duplicate and out-of-order events, slow concurrent fetches, ownership mismatch and unknown prices.
 - Disposable PostgreSQL tests cover customer binding, concurrent checkout reservation, fencing, invoice uniqueness/fiscal-field preservation, RLS and denial of client access to server-only tables/functions.
-- Browser tests against staging cover account plan/renewal display, paid-document/fiscal-pending presentation, device removal, slot promotion and disabled billing endpoints when no Stripe key is configured.
+- Browser tests against staging cover account plan/renewal display, paid-document/fiscal-pending presentation, Pro on all registered devices, device removal and disabled billing endpoints when no Stripe key is configured. Apply all migrations, including removal of the device cap, before running the updated tests.
 
 References: [Stripe Checkout subscriptions](https://docs.stripe.com/payments/checkout/build-subscriptions), [webhook signature verification](https://docs.stripe.com/webhooks/signature), [Stripe API idempotency](https://docs.stripe.com/api/idempotent_requests), [subscription lifecycle](https://docs.stripe.com/billing/subscriptions/webhooks).

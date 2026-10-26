@@ -7,6 +7,7 @@ import { billingReadiness } from "@/lib/billing/config";
 import { DeviceList, type AccountDevice } from "@/components/account/device-list";
 import { BillingActions } from "@/components/account/billing-actions";
 import { PaymentStatus } from "@/components/account/payment-status";
+import { FREE_MAX_FIRMS } from "@/lib/license/plans";
 import "./account.css";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       {checkout === "cancelled" && <p className="form-message success-message" role="status">Ai revenit din pagina de plată. Poți relua procesul când dorești.</p>}
       <div className="account-top-grid">
         <section className="account-panel plan-panel" aria-labelledby="account-plan-title"><div className="panel-heading"><h2 id="account-plan-title">Abonament</h2><span className={`plan-badge ${pro ? "is-pro" : ""}`}>{subscriptionResult.error ? "Indisponibil" : pro ? "Pro" : "Free"}</span></div>
-          {subscriptionResult.error ? <p className="form-message error-message" role="alert">Nu am putut încărca abonamentul. Reîncarcă pagina pentru a încerca din nou.</p> : <><p className="plan-name">Declaut {pro ? "Pro" : "Free"}</p><p className="account-muted">{pro ? "Acces Pro pe maximum două dispozitive." : "Acces Free în aplicația Declaut."}</p>
+          {subscriptionResult.error ? <p className="form-message error-message" role="alert">Nu am putut încărca abonamentul. Reîncarcă pagina pentru a încerca din nou.</p> : <><p className="plan-name">Declaut {pro ? "Pro" : "Free"}</p><p className="account-muted">{pro ? "Acces Pro pe toate dispozitivele contului, fără limită de dispozitive." : `Acces Free pentru maximum ${FREE_MAX_FIRMS} firme în aplicația Declaut.`}</p>
             {pro && entitlement.subscription && <dl className="plan-period"><dt>{entitlement.grace ? "Acces în perioada de grație până la" : entitlement.subscription.cancel_at_period_end ? "Abonamentul se încheie la" : entitlement.subscription.status === "trialing" ? "Perioada de test se încheie la" : "Următoarea reînnoire"}</dt><dd>{formatDate(entitlement.grace ? entitlement.proUntil : entitlement.subscription.current_period_end)}</dd></dl>}
             {entitlement.grace && <p className="account-notice">Plata necesită atenție. Accesul Pro continuă cel mult 72 de ore de la începutul perioadei curente.</p>}
             {!pro && entitlement.subscription?.is_pro !== false && entitlement.subscription?.status === "past_due" && Date.parse(entitlement.subscription.current_period_start) + 72 * 3_600_000 <= Date.now() && <p className="account-notice">Perioada de grație a expirat. Planul este Free până la confirmarea unei plăți eligibile.</p>}

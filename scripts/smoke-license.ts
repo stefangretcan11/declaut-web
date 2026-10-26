@@ -36,6 +36,9 @@ async function main() {
       const { payload } = await jwtVerify(body.token, publicKey, { algorithms: ["EdDSA"], issuer: required("LICENSE_ISSUER"), audience: required("LICENSE_AUDIENCE") });
       assert.equal(payload.sub, userId); assert.equal(payload.device_id, device); assert.equal(payload.plan, body.plan);
       assert.equal(payload.exp, Date.parse(body.expires_at) / 1000);
+      assert.equal(Object.hasOwn(body, "device_limit_reached"), false);
+      if (body.plan === "free") assert.equal(payload.max_firms, 3);
+      else assert.equal(Object.hasOwn(payload, "max_firms"), false);
       assert.equal(response.headers.get("cache-control"), "no-store");
       return body;
     };
@@ -50,8 +53,9 @@ async function main() {
     assert.equal((await license("smoke-one")).plan, "pro");
     assert.equal((await license("smoke-two")).plan, "pro");
     const third = await license("smoke-three");
-    assert.equal(third.plan, "free"); assert.equal(third.device_limit_reached, true);
-    console.log("Active subscription: two Pro devices; third gets signed Free license with limit flag");
+    assert.equal(third.plan, "pro");
+    assert.equal((await license("smoke-four")).plan, "pro");
+    console.log("Active subscription: all four devices receive signed, device-bound Pro licenses");
 
     let updated = await admin.from("subscriptions").update({ status: "past_due", current_period_start: new Date(Date.now() - 71 * 3600000).toISOString() }).eq("id", id);
     if (updated.error) throw new Error("Could not set grace-period fixture");

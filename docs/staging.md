@@ -8,9 +8,11 @@ The authenticated test verified Free and Pro JWT signatures with the local stagi
 
 This URL identifies a specific deployment. Choose a stable staging domain pointing to a verified deployment before the Track B handoff; test that domain with the same command below.
 
+The 2026-10-26 source update removes the device cap and sets Free to three firms. The historical hosted checks above describe the previous policy. Apply `20261026000000_remove_device_limit.sql`, deploy the updated app, then rerun the smoke test before claiming the new policy is active on a hosted environment.
+
 ## Record the manually applied migration
 
-This step is complete for the current staging project: all four committed migrations (schema, signup consent, billing storage, device removal) are applied and recorded remotely. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
+The original four migrations (schema, signup consent, billing storage, device removal) are applied and recorded remotely. The new `20261026000000_remove_device_limit.sql` must also be applied before deploying this update. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
 
 The initial SQL migration was applied in the Supabase SQL Editor and verified against the staging API. SQL Editor execution does not add it to the CLI migration history. Before pushing this migration to a GitHub branch with automatic Supabase deployment, record version `20261024000000` as applied so it will not try to create the tables again.
 
@@ -73,7 +75,7 @@ Run the existing staging smoke test against the deployed application:
 LICENSE_API_URL=https://YOUR-STAGING-APP.vercel.app npm run test:staging
 ```
 
-It uses the credentials in the local `.env.local`, creates temporary test fixtures, verifies JWT signatures against `.keys/staging/public.pem`, and cleans up. It proves Free/Pro issuance, two Pro devices, a third Free device, the 72-hour payment grace period, invalid-token rejection and server-only subscription writes. It bypasses email delivery by creating a confirmed test user through the admin API; custom SMTP and real signup confirmation still need separate setup and validation.
+It uses the credentials in the local `.env.local`, creates temporary test fixtures, verifies JWT signatures against `.keys/staging/public.pem`, and cleans up. It proves the signed three-firm Free cap, device-bound Pro issuance on four devices without a device cap, the 72-hour payment grace period, invalid-token rejection and server-only subscription writes. It bypasses email delivery by creating a confirmed test user through the admin API; custom SMTP and real signup confirmation still need separate setup and validation.
 
 ## Supabase auth settings
 

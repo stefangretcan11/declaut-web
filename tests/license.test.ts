@@ -12,7 +12,7 @@ const keys = generateKeyPairSync("ed25519", {
 });
 const sign = createLicenseSigner({ privateKeyPem: keys.privateKey, keyId: "test-key", issuer: "declaut-staging", audience: "declaut-desktop" });
 const now = new Date("2026-10-24T12:00:00Z");
-const free: Entitlement = { plan: "free", device_limit_reached: false, pro_until: null };
+const free: Entitlement = { plan: "free", pro_until: null };
 
 test("Free license verifies with the public key and binds user, device, audience, issuer, expiry", async () => {
   const { token, expires_at } = await sign("user-1", "device-1", free, now);
@@ -24,6 +24,7 @@ test("Free license verifies with the public key and binds user, device, audience
   assert.equal(payload.sub, "user-1");
   assert.equal(payload.device_id, "device-1");
   assert.equal(payload.plan, "free");
+  assert.equal(payload.max_firms, 3);
   assert.equal(payload.v, 1);
   assert.equal(expires_at, "2026-10-25T12:00:00.000Z");
   await assert.rejects(jwtVerify(token, publicKey, { audience: "other-app", currentDate: now }));
@@ -34,10 +35,12 @@ test("Free license verifies with the public key and binds user, device, audience
 
 test("Pro token expiry cannot exceed the payment grace period or subscription end", async () => {
   const boundary = "2026-10-24T13:00:00Z";
-  const { token, expires_at } = await sign("user-1", "device-1", { plan: "pro", device_limit_reached: false, pro_until: boundary }, now);
+  const { token, expires_at } = await sign("user-1", "device-1", { plan: "pro", pro_until: boundary }, now);
   assert.equal(expires_at, "2026-10-24T13:00:00.000Z");
   const { payload } = await jwtVerify(token, await importSPKI(keys.publicKey, "EdDSA"), { currentDate: now });
   assert.equal(payload.plan, "pro");
+  assert.equal(payload.device_id, "device-1");
+  assert.equal(Object.hasOwn(payload, "max_firms"), false, "Free's firm cap must not apply to Pro");
   await assert.rejects(sign("user-1", "device-1", { ...free, plan: "pro", pro_until: now.toISOString() }, now));
 });
 
@@ -45,12 +48,12 @@ function request(body: unknown = { device_id: "desktop-1", device_name: "Office 
   return new Request("https://example.com/api/license", { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
 }
 
-test("HTTP handler uses the verified identity and returns third-device Free flag", async () => {
+test("HTTP handler uses the verified identity and omits the removed device-limit flag", async () => {
   const handler = createLicenseHandler({
     authenticate: async (token) => { assert.equal(token, "access-token"); return { id: "verified-user" }; },
     resolve: async (user, device, name) => {
       assert.equal(user, "verified-user"); assert.equal(device, "desktop-1"); assert.equal(name, "Office PC");
-      return { ...free, device_limit_reached: true };
+      return free;
     },
     sign: (user, device, entitlement) => sign(user, device, entitlement, now),
     release: async () => { throw new Error("GitHub unavailable"); },
@@ -59,10 +62,29 @@ test("HTTP handler uses the verified identity and returns third-device Free flag
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const result = await response.json();
-  assert.equal(result.plan, "free"); assert.equal(result.device_limit_reached, true);
+  assert.equal(result.plan, "free"); assert.equal(Object.hasOwn(result, "device_limit_reached"), false);
   assert.equal(result.download_url, null); assert.equal(result.latest_version, null);
   const { payload } = await jwtVerify(result.token, await importSPKI(keys.publicKey, "EdDSA"), { currentDate: now });
   assert.equal(payload.plan, "free"); assert.equal(payload.sub, "verified-user");
+});
+
+test("HTTP handler issues device-bound Pro tokens on every registered PC", async () => {
+  const handler = createLicenseHandler({
+    authenticate: async () => ({ id: "verified-user" }),
+    resolve: async () => ({ plan: "pro", pro_until: "2026-11-24T12:00:00Z" }),
+    sign: (user, device, entitlement) => sign(user, device, entitlement, now),
+    release: async () => ({ latest_version: null, download_url: null }),
+  });
+  for (const device of ["first", "second", "third", "fourth"]) {
+    const response = await handler(request({ device_id: device, device_name: "Office PC" }));
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.plan, "pro");
+    assert.equal(Object.hasOwn(result, "device_limit_reached"), false);
+    const { payload } = await jwtVerify(result.token, await importSPKI(keys.publicKey, "EdDSA"), { currentDate: now });
+    assert.equal(payload.plan, "pro");
+    assert.equal(payload.device_id, device);
+  }
 });
 
 test("Invalid requests never authenticate or touch the database", async () => {
