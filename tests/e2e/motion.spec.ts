@@ -12,10 +12,10 @@ async function positionSection(page: Page, id: string, viewportFraction: number)
   }, { id, viewportFraction });
 }
 
-test("workflow stages reveal once and preserve illustrative declaration states", async ({ page }) => {
+test("vertical workflow fallback preserves its one-time reveals and illustrative states", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 820, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
   await ready(page);
@@ -75,8 +75,11 @@ test("reduced motion works both at first load and when changed during a visit", 
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "0");
+  await expect(page.locator("[data-workflow-story]")).toHaveAttribute("data-story-mode", "scroll");
+  await expect(page.locator("[data-story-window]")).toHaveCount(1);
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator("[data-workflow-story]")).toHaveAttribute("data-story-mode", "static");
+  await expect(page.locator("[data-story-window]")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
   await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "1");
   await expect(page.locator(".upload-preview")).toHaveCSS("transform", "none");
@@ -88,9 +91,17 @@ test("layouts remain stable across mobile, tablet and desktop with motion enable
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await ready(page);
+    await expect(page.locator("[data-workflow-story]")).toHaveAttribute("data-story-mode", width >= 1000 ? "scroll" : "static");
     const heightBefore = await page.locator("body").evaluate((element) => element.scrollHeight);
-    await positionSection(page, "receipt-title", 0.35);
-    await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "1");
+    if (width >= 1000) {
+      await page.locator("[data-workflow-story]").evaluate((element) => {
+        window.scrollTo({ top: element.getBoundingClientRect().top + scrollY + (element.getBoundingClientRect().height - innerHeight) * 0.92, behavior: "instant" });
+      });
+      await expect(page.locator("[data-story-receipt]")).toHaveCSS("opacity", "1");
+    } else {
+      await positionSection(page, "receipt-title", 0.35);
+      await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "1");
+    }
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", width);
     expect(await page.locator("body").evaluate((element) => element.scrollHeight)).toBe(heightBefore);
   }

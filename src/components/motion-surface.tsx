@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAnimate, useReducedMotion } from "motion/react";
 import { enhanceMotion } from "@/lib/motion";
+
+const MotionPreference = createContext(true);
+export function useSiteReducedMotion() { return useContext(MotionPreference); }
 
 /** Keeps content server-rendered; animation frames never update React state. */
 export function MotionSurface({ children, className }: { children: React.ReactNode; className: string }) {
@@ -34,5 +37,5 @@ export function MotionSurface({ children, className }: { children: React.ReactNo
     };
   }, [animate, pathname, prefersReducedMotion, scope]);
 
-  return <main ref={scope} className={className}>{children}</main>;
+  return <MotionPreference.Provider value={prefersReducedMotion !== false}><main ref={scope} className={className}>{children}</main></MotionPreference.Provider>;
 }

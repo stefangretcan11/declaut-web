@@ -18,12 +18,38 @@ The existing Next.js App Router/React website uses plain CSS and Motion for Reac
 
 - Sections reveal once with 20px upward movement, a 0.56-second ease-out and 80ms staggering. Related headings, cards and FAQ disclosures use the same restrained language.
 - The hero coordinates its existing headline, supporting text and preview. The main CTA stays fully opaque and usable from its first frame. Motion adds no server-rendered hidden styles, so content remains visible without JavaScript or animation APIs.
-- Each of the three workflow stages has one timeline for its copy and product preview. Small stage offsets connect the progression on desktop and the existing vertical mobile layout. Matrix rows and status indicators settle once; the existing illustrative upload bar and receipt rows follow the same rhythm. Declaration values, labels and statuses never change.
-- Completed stages do not scrub backwards or replay on scrolling. There are no scroll listeners, continuous frame loops, floating effects or parallax.
+- The vertical workflow fallback keeps one timeline per stage for its copy and existing product preview. These illustrative values remain unchanged. The dedicated desktop story below uses separate, clearly labelled fictional state transitions.
+- Completed viewport reveals do not replay. The desktop workflow story is the intentional exception: its internal demonstration follows scroll progress in both directions through Motion values. There are no custom scroll listeners, timers, scroll locks or decorative parallax.
 - Hover lift is 2px for buttons and 3px for cards, with restrained shadows; press scale is 0.98. Feedback uses 150–250ms transitions, keeps visible keyboard focus and limits hover movement to precise pointers. Native disclosures remain functional without JavaScript.
 - `useReducedMotion` supplies Motion's initial preference. A media-query subscription also handles live preference changes, cancelling all effects and restoring original inline styles immediately. Already visited sections stay settled if motion is re-enabled.
 - Focus and fragment navigation immediately finish pending or running reveals. Motion cleans up its scoped animations on unmount; the enhancement also restores styles and removes viewport/event subscriptions on navigation and preference changes. Print styles show the complete document.
 
-`tests/e2e/motion.spec.ts` covers one-time workflow progression, unchanged illustrative statuses, keyboard/deep-link access, live reduced-motion changes, 320px/mobile/tablet/desktop stability, missing animation APIs and native navigation without JavaScript. Full-page marketing screenshots run with reduced motion so static appearance can be compared directly.
+`tests/e2e/motion.spec.ts` covers the original one-time reveals, vertical workflow, keyboard/deep-link access, live reduced-motion changes, 320px/mobile/tablet/desktop stability, missing animation APIs and native navigation without JavaScript. Full-page marketing screenshots run with reduced motion so static appearance can be compared directly.
 
 References: [Motion useAnimate](https://motion.dev/docs/react-use-animate), [Motion reduced-motion support](https://motion.dev/docs/react-use-reduced-motion), [Motion inView](https://motion.dev/docs/inview).
+
+
+## Continuous workflow demonstration
+
+`WorkflowStory` replaces only the three workflow rows on the homepage. At viewports of at least **1000 × 720**, with motion enabled and supported APIs, its 360svh container holds a 100svh sticky composition. A single application frame stays mounted with fixed geometry; the declaration matrix, sidebar and inspector remain in that same frame throughout all stages. Its width is 78vw up to 1120px, and its height adapts to the available viewport without changing between stages.
+
+`useScroll` tracks the section from `start start` to `end end`; one damped `useSpring` value synchronizes `useTransform` mappings. No React state changes occur per scroll frame. Headings, D112 selection/status, the submission bar and receipt panel follow local progress and reverse naturally. The final state holds from about 85% to the end. Matrix row entrances reuse `MATRIX_ROW_REVEAL` and `MOTION_EASE` from the existing animation utility, with `useInView({ once: true })` so they do not replay on reverse scrolling.
+
+| Progress | Demonstration |
+| --- | --- |
+| 0–12% | Gentle window entrance |
+| 12–28% | Focus the fictional D112 declaration |
+| 32–43% | Transition from Pregătit to În curs de trimitere |
+| 45–65% | Advance the illustrative submission bar |
+| 67–84% | Show Validat and reveal the fictional receipt |
+| 85–100% | Hold the final result |
+
+The desktop UI deliberately uses no `data-motion-group` or old workflow-row wrappers. Its scroll-linked values therefore do not compete with the existing viewport reveal controller. The hero entrance, navigation/button interactions, pricing, FAQ and update-card reveals retain their behavior. `WorkflowFallback` reuses the original Matrix/Upload/Receipt previews and their existing animation sequences in the compact vertical layout.
+
+The reduced-motion context comes from the existing `MotionSurface` preference and live media subscription; the story does not add another motion preference mechanism. Small/short viewports, reduced-motion users, missing animation APIs and JavaScript-disabled visits receive the server-rendered fallback without the long scroll container. Print also uses the complete fallback. Only viewport-capacity changes use local React state.
+
+All firms, CUI values, statuses and receipt details in the desktop frame are explicitly fictional. The apparent submission control is non-interactive illustration markup; the demo makes no ANAF/API requests and imports no business logic. The visible caption and screen-reader description identify the simulation, and the three stage headings retain a complete reading order without live status announcements.
+
+`tests/e2e/workflow-story.spec.ts` verifies persistent frame identity/geometry, reversible states, matrix row entrances, no ANAF requests, internal clipping and horizontal overflow down to 1000 × 720, compact/short viewport fallbacks, printing, shared reduced-motion behavior and desktop no-JavaScript content. Screenshots are written to `.artifacts/story-*.png`.
+
+References: [Motion useScroll](https://motion.dev/docs/react-use-scroll), [Motion useTransform](https://motion.dev/docs/react-use-transform), [Motion useSpring](https://motion.dev/docs/react-use-spring).
