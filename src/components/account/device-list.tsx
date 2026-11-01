@@ -30,10 +30,10 @@ export function DeviceList({ devices, pro }: { devices: AccountDevice[]; pro: bo
     {message && <p ref={messageRef} tabIndex={-1} className="form-message success-message" role="status">{message}</p>}
     {error && <p className="form-message error-message" role="alert">{error}</p>}
     {!devices.length ? <div className="account-empty"><p>Încă nu ai dispozitive înregistrate.</p><p>Ele apar aici când te autentifici în aplicația desktop și soliciți o licență.</p></div> :
-      <ul className="device-rows">{devices.map((device, index) => <li key={device.id} data-device-id={device.id}>
-        <div className="device-info"><div className="device-title"><strong>{device.device_name}</strong><span className={`plan-badge ${pro && index < 2 ? "is-pro" : ""}`}>{pro && index < 2 ? "Pro" : "Free"}</span></div><p>Ultima utilizare: {formatDate(device.last_seen_at)}</p><code>{device.device_id}</code></div>
+      <ul className="device-rows">{devices.map((device) => <li key={device.id} data-device-id={device.id}>
+        <div className="device-info"><div className="device-title"><strong>{device.device_name}</strong><span className={`plan-badge ${pro ? "is-pro" : ""}`}>{pro ? "Pro" : "Free"}</span></div><p>Ultima utilizare: {formatDate(device.last_seen_at)}</p><code>{device.device_id}</code></div>
         <div className="device-controls">{confirmId === device.id ? <><p>Elimini acest dispozitiv?</p><div className="device-confirm-actions"><button className="button button-secondary" type="button" onClick={() => setConfirmId(null)} disabled={Boolean(pending)}>Păstrează</button><button className="button button-danger" type="button" disabled={Boolean(pending)} onClick={() => remove(device)}>{pending === device.id ? "Se elimină…" : "Confirmă eliminarea"}</button></div></> : <button className="button button-secondary" type="button" aria-label={`Elimină ${device.device_name}`} disabled={Boolean(pending)} onClick={() => { setConfirmId(device.id); setError(undefined); }}>Elimină</button>}</div>
       </li>)}</ul>}
-    <p className="account-explainer">Pro este disponibil pe primele două dispozitive înregistrate. După eliminare, următorul dispozitiv primește locul la reîmprospătarea licenței. O licență deja emisă rămâne valabilă până la expirare, cel mult 24 de ore.</p>
+    <p className="account-explainer">Pro este disponibil pe toate dispozitivele contului, fără limită de dispozitive. Eliminarea șterge înregistrarea din cont; aplicația o poate crea din nou la următoarea solicitare de licență. O licență deja emisă rămâne valabilă până la expirare, cel mult 24 de ore.</p>
   </div>;
 }

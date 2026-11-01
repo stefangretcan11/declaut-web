@@ -1,0 +1,137 @@
+/* Shared timing, independent of the existing brand and layout styles. */
+:root {
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-ease-interaction: cubic-bezier(.2, .7, .3, 1);
+  --motion-fast: 200ms;
+  --motion-base: 360ms;
+}
+
+.button {
+  transition: translate var(--motion-base) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-ease-interaction),
+    background-color var(--motion-fast) ease;
+}
+.button > span[aria-hidden="true"],
+.marketing-text-link > span[aria-hidden="true"],
+.marketing-account-link > span[aria-hidden="true"],
+.marketing-context-note a > span[aria-hidden="true"] {
+  display: inline-block;
+  transition: translate var(--motion-base) var(--motion-ease);
+}
+.marketing-navigation a {
+  position: relative;
+  transition: color var(--motion-fast) ease;
+}
+.marketing-navigation a:not([aria-current="page"])::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 8px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+.marketing-update-card, .marketing-plan {
+  transition: translate var(--motion-base) var(--motion-ease);
+}
+.marketing-faq-list summary > span,
+.marketing-mobile-navigation summary > span {
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+.marketing-faq-list summary {
+  transition: color var(--motion-fast) ease;
+}
+.preview-progress > span { transform-origin: left center; }
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .button:not(:disabled):not([aria-disabled="true"]):hover {
+    translate: 0 -2px;
+    scale: 1.01;
+  }
+  .button:hover > span[aria-hidden="true"],
+  .marketing-text-link:hover > span[aria-hidden="true"],
+  .marketing-account-link:hover > span[aria-hidden="true"],
+  .marketing-context-note a:hover > span[aria-hidden="true"] {
+    translate: 2px -1px;
+  }
+  .marketing-text-link[href^="#"]:hover > span[aria-hidden="true"],
+  .marketing-download-action .button:hover > span[aria-hidden="true"] {
+    translate: 0 3px;
+  }
+  .marketing-update-card:hover, .marketing-plan:hover { translate: 0 -3px; }
+  .marketing-navigation a:hover::after { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+
+  .button:not(:disabled):not([aria-disabled="true"]):active {
+    translate: 0 0;
+    scale: .98;
+    transition-duration: 100ms;
+  }
+  .marketing-update-card:focus-within, .marketing-plan:focus-within { translate: 0 -3px; }
+  .marketing-navigation a:focus-visible::after { transform: scaleX(1); }
+
+  /* First paint is CSS-driven: no hydration gate or delayed interaction. */
+  .marketing-hero-copy > .eyebrow,
+  .marketing-hero-copy [data-motion-line],
+  .marketing-hero-copy > p:not(.eyebrow),
+  .marketing-release-note,
+  [data-motion-heading] > *,
+  .auth-heading > *,
+  .account-heading > div > *,
+  .legal-content > h1 {
+    animation: declaut-rise 850ms var(--motion-ease) both;
+  }
+  .marketing-hero-copy [data-motion-line] { display: inline-block; }
+  .marketing-hero-copy [data-motion-line]:first-child { animation-delay: 70ms; }
+  .marketing-hero-copy [data-motion-line]:last-child { animation-delay: 150ms; }
+  .marketing-hero-copy > p:not(.eyebrow) { animation-delay: 210ms; }
+  .marketing-hero-actions { animation: declaut-actions 700ms var(--motion-ease) 250ms both; }
+  .marketing-release-note { animation-delay: 290ms; }
+  .marketing-hero-preview { animation: declaut-visual 1100ms var(--motion-ease) 100ms both; }
+  [data-motion-heading] > h1, .auth-heading > h1 { animation-delay: 70ms; }
+  [data-motion-heading] > .marketing-page-description,
+  .auth-heading > .description { animation-delay: 140ms; }
+
+  .marketing-mobile-navigation[open] > nav {
+    animation: declaut-menu 240ms var(--motion-ease) both;
+  }
+  /* A focused CTA is always immediately visible, including during entrance. */
+  .marketing-hero-actions:focus-within { animation: none; }
+
+  @keyframes declaut-rise {
+    from { opacity: 0; transform: translate3d(0, 24px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes declaut-actions {
+    from { opacity: .65; transform: translate3d(0, 12px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes declaut-visual {
+    from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes declaut-menu {
+    from { opacity: 0; transform: translate3d(0, -5px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .button, .marketing-update-card, .marketing-plan { translate: none; scale: none; }
+}
+
+/* Print the complete document, even when a section hasn't entered the viewport. */
+@media print {
+  [data-motion-group] > *, [data-motion-reveal], [data-motion-scene],
+  [data-motion-scene] *, .marketing-hero-copy > *, [data-motion-line],
+  .marketing-hero-preview, [data-motion-heading] > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

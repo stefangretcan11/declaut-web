@@ -1,5 +1,6 @@
 import { importPKCS8, SignJWT } from "jose";
 import type { Entitlement } from "./types";
+import { FREE_MAX_FIRMS } from "./plans";
 
 export const LICENSE_TTL_SECONDS = 24 * 60 * 60;
 
@@ -29,7 +30,12 @@ export function createLicenseSigner(config: SigningConfig) {
       if (expiresAt <= issuedAt) throw new Error("Pro entitlement expired during issuance");
     }
     key ??= importPKCS8(config.privateKeyPem, "EdDSA");
-    const token = await new SignJWT({ v: 1, device_id: deviceId, plan: entitlement.plan })
+    const token = await new SignJWT({
+      v: 1,
+      device_id: deviceId,
+      plan: entitlement.plan,
+      ...(entitlement.plan === "free" ? { max_firms: FREE_MAX_FIRMS } : {}),
+    })
       .setProtectedHeader({ alg: "EdDSA", typ: "JWT", kid: config.keyId })
       .setSubject(userId)
       .setIssuer(config.issuer)
