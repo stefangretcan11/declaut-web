@@ -3,7 +3,7 @@ function Tick() {
 }
 
 export function MatrixPreview({ compact = false }: { compact?: boolean }) {
-  return <figure className={`workflow-preview matrix-preview${compact ? " compact-preview" : ""}`}>
+  return <figure className={`workflow-preview matrix-preview${compact ? " compact-preview" : ""}`} data-motion-scene={compact ? "hero" : "matrix"}>
     <div className="preview-window-bar"><span className="preview-window-dot" /><span>Declaut / Declarații</span><span>Octombrie</span></div>
     <div className="preview-window-content"><div className="preview-heading"><strong>Totul, într-un singur loc.</strong><span>Exemplu ilustrativ</span></div>
       <div className="preview-table" role="img" aria-label="Exemplu ilustrativ al matricei: firme pe rânduri, declarații pe coloane și stări de verificare.">
@@ -17,9 +17,9 @@ export function MatrixPreview({ compact = false }: { compact?: boolean }) {
 }
 
 export function UploadPreview() {
-  return <figure className="workflow-preview upload-preview"><div className="preview-window-bar"><span className="preview-window-dot" /><span>Declaut / Încărcare ANAF</span></div><div className="preview-window-content"><div className="preview-document"><span aria-hidden="true">↥</span><div><strong>D112 · Exemplu SRL</strong><p>Declarație selectată pentru încărcare</p></div></div><div className="preview-progress"><span /></div><div className="preview-steps"><span><Tick /> Selectare document</span><span><Tick /> Încărcare</span><span className="preview-muted">Urmărire recipisă</span></div></div><figcaption>Previzualizare ilustrativă · nu reprezintă o încărcare reală</figcaption></figure>;
+  return <figure className="workflow-preview upload-preview" data-motion-scene="upload"><div className="preview-window-bar"><span className="preview-window-dot" /><span>Declaut / Încărcare ANAF</span></div><div className="preview-window-content"><div className="preview-document"><span aria-hidden="true">↥</span><div><strong>D112 · Exemplu SRL</strong><p>Declarație selectată pentru încărcare</p></div></div><div className="preview-progress"><span /></div><div className="preview-steps"><span><Tick /> Selectare document</span><span><Tick /> Încărcare</span><span className="preview-muted">Urmărire recipisă</span></div></div><figcaption>Previzualizare ilustrativă · nu reprezintă o încărcare reală</figcaption></figure>;
 }
 
 export function ReceiptPreview() {
-  return <figure className="workflow-preview receipt-preview"><div className="preview-window-bar"><span className="preview-window-dot" /><span>Declaut / Recipise</span></div><div className="preview-window-content"><div className="preview-receipt-status"><span className="preview-receipt-icon"><Tick /></span><div><strong>Starea recipisei, la vedere.</strong><p>Exemplu SRL · D112</p></div></div><dl className="preview-receipt-details"><div><dt>Declarație</dt><dd>D112</dd></div><div><dt>Stare ilustrată</dt><dd>Verificată</dd></div><div><dt>Următorul pas</dt><dd>Consultă documentul</dd></div></dl></div><figcaption>Previzualizare ilustrativă · nu reprezintă un rezultat ANAF real</figcaption></figure>;
+  return <figure className="workflow-preview receipt-preview" data-motion-scene="receipt"><div className="preview-window-bar"><span className="preview-window-dot" /><span>Declaut / Recipise</span></div><div className="preview-window-content"><div className="preview-receipt-status"><span className="preview-receipt-icon"><Tick /></span><div><strong>Starea recipisei, la vedere.</strong><p>Exemplu SRL · D112</p></div></div><dl className="preview-receipt-details"><div><dt>Declarație</dt><dd>D112</dd></div><div><dt>Stare ilustrată</dt><dd>Verificată</dd></div><div><dt>Următorul pas</dt><dd>Consultă documentul</dd></div></dl></div><figcaption>Previzualizare ilustrativă · nu reprezintă un rezultat ANAF real</figcaption></figure>;
 }
