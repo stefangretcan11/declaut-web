@@ -3,13 +3,14 @@
   --motion-ease: cubic-bezier(.22, 1, .36, 1);
   --motion-ease-interaction: cubic-bezier(.2, .7, .3, 1);
   --motion-fast: 200ms;
-  --motion-base: 360ms;
+  --motion-base: 220ms;
 }
 
 .button {
   transition: translate var(--motion-base) var(--motion-ease),
     scale var(--motion-fast) var(--motion-ease-interaction),
-    background-color var(--motion-fast) ease;
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
 .button > span[aria-hidden="true"],
 .marketing-text-link > span[aria-hidden="true"],
@@ -33,7 +34,8 @@
   transition: transform var(--motion-base) var(--motion-ease);
 }
 .marketing-update-card, .marketing-plan {
-  transition: translate var(--motion-base) var(--motion-ease);
+  transition: translate var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
 }
 .marketing-faq-list summary > span,
 .marketing-mobile-navigation summary > span {
@@ -43,12 +45,14 @@
   transition: color var(--motion-fast) ease;
 }
 .preview-progress > span { transform-origin: left center; }
+.preview-status { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .button:not(:disabled):not([aria-disabled="true"]):hover {
     translate: 0 -2px;
-    scale: 1.01;
   }
+  .button-primary:not(:disabled):not([aria-disabled="true"]):hover { box-shadow: 0 6px 14px #18362e14; }
+  .button-secondary:not(:disabled):not([aria-disabled="true"]):hover { box-shadow: 0 3px 10px #18362e08; }
   .button:hover > span[aria-hidden="true"],
   .marketing-text-link:hover > span[aria-hidden="true"],
   .marketing-account-link:hover > span[aria-hidden="true"],
@@ -59,7 +63,7 @@
   .marketing-download-action .button:hover > span[aria-hidden="true"] {
     translate: 0 3px;
   }
-  .marketing-update-card:hover, .marketing-plan:hover { translate: 0 -3px; }
+  .marketing-update-card:hover, .marketing-plan:hover { translate: 0 -3px; box-shadow: 0 8px 20px #18362e08; }
   .marketing-navigation a:hover::after { transform: scaleX(1); }
 }
 
@@ -69,53 +73,24 @@
   .button:not(:disabled):not([aria-disabled="true"]):active {
     translate: 0 0;
     scale: .98;
-    transition-duration: 100ms;
+    transition-duration: 160ms;
   }
   .marketing-update-card:focus-within, .marketing-plan:focus-within { translate: 0 -3px; }
   .marketing-navigation a:focus-visible::after { transform: scaleX(1); }
 
-  /* First paint is CSS-driven: no hydration gate or delayed interaction. */
-  .marketing-hero-copy > .eyebrow,
-  .marketing-hero-copy [data-motion-line],
-  .marketing-hero-copy > p:not(.eyebrow),
-  .marketing-release-note,
-  [data-motion-heading] > *,
+  /* Public entrances are enhanced by Motion after hydration. These existing
+     transactional headings keep their independent, lightweight CSS entrance. */
   .auth-heading > *,
   .account-heading > div > *,
   .legal-content > h1 {
     animation: declaut-rise 850ms var(--motion-ease) both;
   }
   .marketing-hero-copy [data-motion-line] { display: inline-block; }
-  .marketing-hero-copy [data-motion-line]:first-child { animation-delay: 70ms; }
-  .marketing-hero-copy [data-motion-line]:last-child { animation-delay: 150ms; }
-  .marketing-hero-copy > p:not(.eyebrow) { animation-delay: 210ms; }
-  .marketing-hero-actions { animation: declaut-actions 700ms var(--motion-ease) 250ms both; }
-  .marketing-release-note { animation-delay: 290ms; }
-  .marketing-hero-preview { animation: declaut-visual 1100ms var(--motion-ease) 100ms both; }
-  [data-motion-heading] > h1, .auth-heading > h1 { animation-delay: 70ms; }
-  [data-motion-heading] > .marketing-page-description,
+  .auth-heading > h1 { animation-delay: 70ms; }
   .auth-heading > .description { animation-delay: 140ms; }
-
-  .marketing-mobile-navigation[open] > nav {
-    animation: declaut-menu 240ms var(--motion-ease) both;
-  }
-  /* A focused CTA is always immediately visible, including during entrance. */
-  .marketing-hero-actions:focus-within { animation: none; }
 
   @keyframes declaut-rise {
     from { opacity: 0; transform: translate3d(0, 24px, 0); }
-    to { opacity: 1; transform: none; }
-  }
-  @keyframes declaut-actions {
-    from { opacity: .65; transform: translate3d(0, 12px, 0); }
-    to { opacity: 1; transform: none; }
-  }
-  @keyframes declaut-visual {
-    from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.97); }
-    to { opacity: 1; transform: none; }
-  }
-  @keyframes declaut-menu {
-    from { opacity: 0; transform: translate3d(0, -5px, 0); }
     to { opacity: 1; transform: none; }
   }
 }

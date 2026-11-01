@@ -1,103 +1,107 @@
-// Native, progressively enhanced motion. Without JS or these APIs all content
-// stays visible. CSS owns the first-paint entrance and interaction timings.
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const TIMELINE = 1000;
-const clamp = (value: number) => Math.min(1, Math.max(0, value));
+import { frame, inView, stagger, type AnimationSequence, type useAnimate } from "motion/react";
 
-type Scene = {
-  anchor: HTMLElement;
-  visual: Animation;
-  steps: { animation: Animation; start: number; end: number }[];
+const EASE = [0.22, 1, 0.36, 1] as const;
+type ScopedAnimate = ReturnType<typeof useAnimate>[1];
+type Controls = ReturnType<ScopedAnimate>;
+type Step = {
+  elements: HTMLElement[];
+  at?: number;
+  duration?: number;
+  stagger?: number;
+  opacity?: number;
+  transform?: string;
+  targetTransform?: string;
+};
+type Entry = {
+  trigger: HTMLElement;
+  controls?: Controls;
+  restore: () => void;
+  unobserve: () => void;
 };
 
-export function enhanceMotion(root: HTMLElement): () => void {
-  if (!("IntersectionObserver" in window) || !root.animate) return () => {};
+function originalStyles(elements: HTMLElement[]) {
+  const originals = Array.from(new Set(elements), (element) => ({
+    element,
+    properties: ["opacity", "transform"].map((name) => ({
+      name, value: element.style.getPropertyValue(name), priority: element.style.getPropertyPriority(name),
+    })),
+  }));
+  const restore = () => originals.forEach(({ element, properties }) => properties.forEach(({ name, value, priority }) => {
+    if (value) element.style.setProperty(name, value, priority);
+    else element.style.removeProperty(name);
+  }));
+  return () => {
+    restore();
+    // Motion can have a final style write queued after its completion promise.
+    // Clear that write too, leaving no compositing transforms after settling.
+    frame.postRender(restore);
+  };
+}
 
-  const animations = new Set<Animation>();
-  const pending = new Map<HTMLElement, Animation[]>();
-  const activeScenes = new Set<Scene>();
-  const scenes = new Map<Element, Scene>();
-  const mobile = window.matchMedia("(max-width: 760px)");
-  let frame = 0;
+/** Enhance existing server markup; never hide content before JS is available. */
+export function enhanceMotion(root: HTMLElement, animate: ScopedAnimate, seen: WeakSet<HTMLElement>): () => void {
+  if (typeof IntersectionObserver !== "function" || typeof root.animate !== "function") return () => {};
+
+  const entries = new Map<HTMLElement, Entry>();
+  const disclosures = new Map<HTMLElement, { controls: Controls; restore: () => void }>();
   let disposed = false;
+  const select = (parent: Element, selector: string) => Array.from(parent.querySelectorAll<HTMLElement>(selector));
+  const finish = (entry: Entry) => {
+    entry.unobserve();
+    entry.controls?.cancel();
+    entry.restore();
+    entries.delete(entry.trigger);
+    seen.add(entry.trigger);
+  };
+  const register = (trigger: HTMLElement, steps: Step[]) => {
+    const rect = trigger.getBoundingClientRect();
+    // Preserve history-restored views and content the user is already focusing.
+    if (seen.has(trigger) || rect.bottom <= 0 || trigger.contains(document.activeElement)) return;
+    const jobs = steps.filter((step) => step.elements.length);
+    if (!jobs.length) return;
+    const entry: Entry = {
+      trigger,
+      restore: originalStyles(jobs.flatMap((step) => step.elements)),
+      unobserve: () => {},
+    };
+    entries.set(trigger, entry);
+    const sequence: AnimationSequence = jobs.map((step) => [
+      step.elements,
+      { opacity: [step.opacity ?? 0, 1], transform: [step.transform ?? "translate3d(0, 20px, 0)", step.targetTransform ?? "none"] },
+      { at: step.at ?? 0, duration: step.duration ?? 0.56, delay: stagger(step.stagger ?? 0.08), ease: EASE },
+    ]);
+    entry.controls = animate(sequence, { autoplay: false });
+    entry.controls.time = 0;
+    void entry.controls.then(() => { if (!disposed && entries.has(trigger)) finish(entry); });
+    entry.unobserve = inView(trigger, () => {
+      if (disposed || !entries.has(trigger)) return;
+      seen.add(trigger);
+      entry.controls?.play();
+      // No exit callback: Motion observes each section only until first entry.
+    }, { margin: "0px 0px -32px 0px" });
+  };
 
-  const animate = (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => {
-    const animation = element.animate(keyframes, options);
-    animations.add(animation);
-    return animation;
-  };
-  const cancel = (animation: Animation) => {
-    animation.cancel();
-    animations.delete(animation);
-  };
-  const reveal = (element: HTMLElement, immediate = false) => {
-    if (disposed) return;
-    const items = pending.get(element);
-    if (!items) return;
-    items.forEach((animation) => immediate ? cancel(animation) : animation.play());
-    pending.delete(element);
-    revealObserver.unobserve(element);
-  };
-  const revealObserver = new IntersectionObserver((entries) => {
-    if (disposed) return;
-    entries.forEach((entry) => {
-      if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0) {
-        reveal(entry.target as HTMLElement, entry.boundingClientRect.bottom <= 0);
-      }
-    });
-  }, { rootMargin: "0px 0px -32px 0px", threshold: 0 });
-
-  // Read every active section first, then update compositor timelines together.
-  // No continuous RAF loop, scroll interception, or React renders per frame.
-  const updateScenes = () => {
-    frame = 0;
-    if (disposed) return;
-    const height = window.innerHeight;
-    const measurements = Array.from(activeScenes, (scene) => ({ scene, rect: scene.anchor.getBoundingClientRect() }));
-    measurements.forEach(({ scene, rect }) => {
-      const travel = clamp((height - rect.top) / (height + rect.height));
-      scene.visual.currentTime = travel * TIMELINE;
-      const progress = clamp((height * 0.92 - rect.top) / (height * 0.62));
-      scene.steps.forEach(({ animation, start, end }) => {
-        animation.currentTime = clamp((progress - start) / (end - start)) * TIMELINE;
-      });
-    });
-  };
-  const schedule = () => {
-    if (!disposed && !frame && !document.hidden) frame = requestAnimationFrame(updateScenes);
-  };
-  const visualKeyframes = () => {
-    const distance = mobile.matches ? 6 : 16;
+  const previewSteps = (figure: HTMLElement, at = 0): Step[] => {
+    const scene = figure.dataset.motionScene;
+    if (scene === "hero" || scene === "matrix") return [
+      { elements: select(figure, ".preview-table-row:not(.preview-table-head)"), at: at + 0.18, duration: 0.48, transform: "translate3d(0, 8px, 0)", opacity: 0.3 },
+      { elements: select(figure, ".preview-status"), at: at + 0.26, duration: 0.4, stagger: 0.03, transform: "none", opacity: 0.5 },
+    ];
+    if (scene === "upload") return [
+      { elements: select(figure, ".preview-document"), at: at + 0.16, transform: "translate3d(0, 8px, 0)" },
+      { elements: select(figure, ".preview-progress > span"), at: at + 0.2, duration: 0.6, transform: "scaleX(0.08)", targetTransform: "scaleX(1)", opacity: 1 },
+      { elements: select(figure, ".preview-steps > span"), at: at + 0.28, duration: 0.45, transform: "translate3d(0, 6px, 0)", opacity: 0.3 },
+    ];
     return [
-      { transform: `translate3d(0, ${distance}px, 0) scale(0.985)` },
-      { transform: `translate3d(0, ${-distance}px, 0) scale(1)` },
+      { elements: select(figure, ".preview-receipt-status"), at: at + 0.16, transform: "translate3d(0, 8px, 0)", opacity: 0.3 },
+      { elements: select(figure, ".preview-receipt-details > div"), at: at + 0.24, duration: 0.48, transform: "translate3d(0, 8px, 0)", opacity: 0.3 },
     ];
   };
-  const onBreakpoint = () => {
-    scenes.forEach((scene) => (scene.visual.effect as KeyframeEffect).setKeyframes(visualKeyframes()));
-    schedule();
-  };
-  const sceneObserver = new IntersectionObserver((entries) => {
-    if (disposed) return;
-    entries.forEach((entry) => {
-      const scene = scenes.get(entry.target);
-      if (scene) {
-        if (entry.isIntersecting) activeScenes.add(scene);
-        else activeScenes.delete(scene);
-      }
-    });
-    schedule();
-  }, { rootMargin: "120px 0px" });
 
-  const resolveTarget = (target: Element, includeDescendants = false) => {
-    for (const element of pending.keys()) {
-      if (element.contains(target) || (includeDescendants && target.contains(element))) reveal(element, true);
+  const resolveTarget = (target: Element, descendants = false) => {
+    for (const entry of entries.values()) {
+      if (entry.trigger.contains(target) || (descendants && target.contains(entry.trigger))) finish(entry);
     }
-    // Focus may arrive after a reveal has started, rather than while pending.
-    const group = target.closest("[data-motion-group], [data-motion-reveal]");
-    group?.getAnimations({ subtree: true }).forEach((animation) => {
-      if (animation.playState === "running" && animations.has(animation)) cancel(animation);
-    });
   };
   const onFocus = (event: FocusEvent) => {
     if (event.target instanceof Element) resolveTarget(event.target);
@@ -106,131 +110,83 @@ export function enhanceMotion(root: HTMLElement): () => void {
     try {
       const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (target && root.contains(target)) resolveTarget(target, true);
-    } catch { /* A malformed URL fragment must not affect the page. */ }
+    } catch { /* Malformed fragments must not affect page access. */ }
   };
-  const disclosureAnimations = new Map<HTMLElement, Animation>();
   const onToggle = (event: Event) => {
-    const details = event.target;
-    if (!(details instanceof HTMLDetailsElement)) return;
-    const content = details.querySelector<HTMLElement>("[data-motion-disclosure]");
+    if (!(event.target instanceof HTMLDetailsElement)) return;
+    const content = event.target.querySelector<HTMLElement>("[data-motion-disclosure]");
     if (!content) return;
-    const previous = disclosureAnimations.get(content);
-    if (previous) cancel(previous);
-    disclosureAnimations.delete(content);
-    if (details.open) {
-      const animation = animate(content, [
-        { opacity: 0, transform: "translate3d(0, -5px, 0)" },
-        { opacity: 1, transform: "none" },
-      ], { duration: 320, easing: EASE });
-      disclosureAnimations.set(content, animation);
-      animation.onfinish = () => {
-        cancel(animation);
-        disclosureAnimations.delete(content);
-      };
+    const previous = disclosures.get(content);
+    previous?.controls.cancel();
+    previous?.restore();
+    disclosures.delete(content);
+    if (event.target.open) {
+      const restore = originalStyles([content]);
+      const controls = animate(content, { opacity: [0, 1], transform: ["translate3d(0, -4px, 0)", "none"] }, { duration: 0.22, ease: EASE });
+      disclosures.set(content, { controls, restore });
+      void controls.then(() => {
+        if (disposed || disclosures.get(content)?.controls !== controls) return;
+        controls.cancel();
+        restore();
+        disclosures.delete(content);
+      });
     }
-    schedule();
   };
-  const onVisibility = () => {
-    if (document.hidden) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-    } else schedule();
-  };
-
   const dispose = () => {
-    if (disposed) return;
     disposed = true;
-    cancelAnimationFrame(frame);
-    revealObserver.disconnect();
-    sceneObserver.disconnect();
-    animations.forEach((animation) => animation.cancel());
-    animations.clear();
-    pending.clear();
-    activeScenes.clear();
-    window.removeEventListener("scroll", schedule);
-    window.removeEventListener("resize", schedule);
-    window.removeEventListener("hashchange", onHash);
-    mobile.removeEventListener("change", onBreakpoint);
-    document.removeEventListener("visibilitychange", onVisibility);
+    entries.forEach((entry) => {
+      entry.unobserve();
+      entry.controls?.cancel();
+      entry.restore();
+    });
+    disclosures.forEach(({ controls, restore }) => { controls.cancel(); restore(); });
+    entries.clear();
+    disclosures.clear();
     root.removeEventListener("focusin", onFocus);
     root.removeEventListener("toggle", onToggle, true);
+    window.removeEventListener("hashchange", onHash);
   };
 
   try {
-    const targets = root.querySelectorAll<HTMLElement>("[data-motion-group], [data-motion-reveal]");
-    // Measure untransformed layout before preparing any reveal animations.
-    const positions = Array.from(targets, (element) => ({ element, rect: element.getBoundingClientRect() }));
-    positions.forEach(({ element, rect }) => {
-      // Keep restored scroll positions, deep links, and focused controls readable.
-      if (rect.bottom <= 0 || element.contains(document.activeElement)) return;
-      const children = element.hasAttribute("data-motion-group") ? Array.from(element.children) : [element];
-      const items = children.map((child, index) => {
-        const animation = animate(child, [
-          { opacity: 0, transform: `translate3d(0, ${mobile.matches ? 14 : 24}px, 0)` },
-          { opacity: 1, transform: "none" },
-        ], { duration: 780, delay: Math.min(index * 75, 225), easing: EASE, fill: "both" });
-        animation.pause();
-        animation.currentTime = 0;
-        animation.onfinish = () => cancel(animation);
-        return animation;
-      });
-      pending.set(element, items);
-      if (rect.top < window.innerHeight - 32) reveal(element);
-      else revealObserver.observe(element);
+    const hero = root.querySelector<HTMLElement>(".marketing-hero");
+    if (hero) {
+      const figure = hero.querySelector<HTMLElement>("[data-motion-scene]");
+      register(hero, [
+        { elements: select(hero, ".marketing-hero-copy > .eyebrow"), duration: 0.5 },
+        { elements: select(hero, "[data-motion-line]"), at: 0.04, duration: 0.6 },
+        { elements: select(hero, ".marketing-hero-copy > p:not(.eyebrow)"), at: 0.12 },
+        // Keep the primary action fully opaque and usable from the first frame.
+        { elements: select(hero, ".marketing-hero-actions"), opacity: 1, transform: "translate3d(0, 8px, 0)", duration: 0.45 },
+        { elements: select(hero, ".marketing-release-note"), at: 0.18 },
+        { elements: select(hero, ".marketing-hero-preview"), at: 0.16, duration: 0.6, transform: "translate3d(0, 16px, 0)" },
+        ...(figure ? previewSteps(figure, 0.08) : []),
+      ]);
+    }
+    root.querySelectorAll<HTMLElement>("[data-motion-heading]").forEach((heading) => {
+      register(heading, [{ elements: Array.from(heading.children) as HTMLElement[] }]);
     });
-
-    root.querySelectorAll<HTMLElement>("[data-motion-scene]").forEach((element) => {
-      const anchor = element.closest<HTMLElement>("[data-motion-section]");
-      if (!anchor) return;
-      const visual = animate(element, visualKeyframes(), { duration: TIMELINE, fill: "both", easing: "linear" });
-      visual.pause();
-      const scene: Scene = { anchor, visual, steps: [] };
-      const step = (selector: string, start: number, spacing = 0.1, scale = false) => {
-        element.querySelectorAll(selector).forEach((child, index) => {
-          const animation = animate(child, scale ? [
-            { transform: "scaleX(0.08)" }, { transform: "scaleX(1)" },
-          ] : [
-            { opacity: 0.25, transform: "translate3d(0, 7px, 0)" },
-            { opacity: 1, transform: "none" },
-          ], { duration: TIMELINE, fill: "both", easing: EASE });
-          animation.pause();
-          scene.steps.push({ animation, start: start + index * spacing, end: start + index * spacing + 0.4 });
-        });
-      };
-      // The hero keeps a complete matrix; subsequent scenes explain the task.
-      if (element.dataset.motionScene === "matrix") step(".preview-table-row:not(.preview-table-head)", 0.05, 0.14);
-      if (element.dataset.motionScene === "upload") {
-        step(".preview-document", 0);
-        step(".preview-progress > span", 0.05, 0, true);
-        step(".preview-steps > span", 0.15, 0.13);
-      }
-      if (element.dataset.motionScene === "receipt") {
-        step(".preview-receipt-status", 0);
-        step(".preview-receipt-details > div", 0.15, 0.13);
-      }
-      scenes.set(anchor, scene);
-      const rect = anchor.getBoundingClientRect();
-      if (rect.top < window.innerHeight + 120 && rect.bottom > -120) activeScenes.add(scene);
-      sceneObserver.observe(anchor);
-      // Initialise before the first scroll, including history-restored views.
-      const progress = clamp((window.innerHeight * 0.92 - rect.top) / (window.innerHeight * 0.62));
-      visual.currentTime = clamp((window.innerHeight - rect.top) / (window.innerHeight + rect.height)) * TIMELINE;
-      scene.steps.forEach(({ animation, start, end }) => {
-        animation.currentTime = clamp((progress - start) / (end - start)) * TIMELINE;
-      });
+    root.querySelectorAll<HTMLElement>("[data-motion-group], [data-motion-reveal]").forEach((element) => {
+      // Each workflow stage has one coordinated timeline for its text + preview.
+      if (element.closest(".marketing-workflow-row")) return;
+      register(element, [{ elements: element.hasAttribute("data-motion-group") ? Array.from(element.children) as HTMLElement[] : [element] }]);
     });
-
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule, { passive: true });
-    window.addEventListener("hashchange", onHash);
-    mobile.addEventListener("change", onBreakpoint);
-    document.addEventListener("visibilitychange", onVisibility);
+    root.querySelectorAll<HTMLElement>(".marketing-workflow-row").forEach((stage, index) => {
+      const figure = stage.querySelector<HTMLElement>("[data-motion-scene]");
+      const at = index * 0.06;
+      register(stage, [
+        { elements: select(stage, ".marketing-workflow-copy > *"), at },
+        { elements: figure ? [figure] : [], at: at + 0.12, transform: "translate3d(0, 16px, 0)" },
+        ...(figure ? previewSteps(figure, at) : []),
+      ]);
+    });
     root.addEventListener("focusin", onFocus);
     root.addEventListener("toggle", onToggle, true);
+    window.addEventListener("hashchange", onHash);
     onHash();
-  } catch {
-    // Enhancement failure must restore the fully usable server-rendered page.
+  } catch (error) {
+    // Restore the original static document if enhancement cannot initialise.
     dispose();
+    if (process.env.NODE_ENV !== "production") console.error("Motion enhancement unavailable", error);
   }
   return dispose;
 }

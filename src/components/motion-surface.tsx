@@ -1,28 +1,38 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useAnimate, useReducedMotion } from "motion/react";
 import { enhanceMotion } from "@/lib/motion";
 
-/** Keeps server-rendered content intact; motion never drives React state. */
+/** Keeps content server-rendered; animation frames never update React state. */
 export function MotionSurface({ children, className }: { children: React.ReactNode; className: string }) {
-  const ref = useRef<HTMLElement>(null);
+  const [scope, animate] = useAnimate<HTMLElement>();
+  const reducedMotion = useReducedMotion();
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(reducedMotion);
+  const seen = useRef(new WeakSet<HTMLElement>());
+  const pathname = usePathname();
 
   useEffect(() => {
-    const root = ref.current;
-    if (!root) return;
+    // Motion's hook provides the initial preference. Subscribe as well so an
+    // OS preference change cancels opacity animations immediately, too.
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let dispose = () => {};
-    const sync = () => {
-      dispose();
-      dispose = preference.matches ? () => {} : enhanceMotion(root);
-    };
+    const sync = () => setPrefersReducedMotion(preference.matches);
     sync();
     preference.addEventListener("change", sync);
-    return () => {
-      dispose();
-      preference.removeEventListener("change", sync);
-    };
+    return () => preference.removeEventListener("change", sync);
   }, []);
 
-  return <main ref={ref} className={className}>{children}</main>;
+  useEffect(() => {
+    const root = scope.current;
+    if (!root) return;
+    const dispose = prefersReducedMotion === false ? enhanceMotion(root, animate, seen.current) : () => {};
+    root.dataset.motionReady = "true";
+    return () => {
+      dispose();
+      delete root.dataset.motionReady;
+    };
+  }, [animate, pathname, prefersReducedMotion, scope]);
+
+  return <main ref={scope} className={className}>{children}</main>;
 }

@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 async function ready(page: Page) {
-  await expect.poll(() => page.evaluate(() => document.getAnimations().some((animation) => animation.playState === "paused"))).toBe(true);
+  await expect(page.locator(".marketing-site")).toHaveAttribute("data-motion-ready", "true");
 }
 
 async function positionSection(page: Page, id: string, viewportFraction: number) {
@@ -12,7 +12,7 @@ async function positionSection(page: Page, id: string, viewportFraction: number)
   }, { id, viewportFraction });
 }
 
-test("workflow visuals follow scroll progress and settle into readable sections", async ({ page }) => {
+test("workflow stages reveal once and preserve illustrative declaration states", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -20,21 +20,31 @@ test("workflow visuals follow scroll progress and settle into readable sections"
   await page.goto("/");
   await ready(page);
   await expect(page.locator(".marketing-hero-actions")).toHaveCSS("pointer-events", "auto");
+  await expect(page.locator(".marketing-hero-actions")).toHaveCSS("opacity", "1");
   await expect(page.locator(".marketing-hero-copy > p:not(.eyebrow)")).toHaveCSS("opacity", "1");
   mkdirSync(".artifacts", { recursive: true });
   await page.screenshot({ path: ".artifacts/motion-hero.png" });
+
+  const matrix = page.locator(".matrix-preview").last();
+  const originalStates = await matrix.innerText();
+  // Keep the following stage outside the viewport while checking this one.
+  await positionSection(page, "matrix-title", 0.72);
+  await expect(matrix.locator(".preview-table-row").last()).toHaveCSS("opacity", "1");
+  expect(await matrix.innerText()).toBe(originalStates);
 
   const progress = page.locator(".preview-progress > span");
   await positionSection(page, "upload-title", 0.86);
   await expect.poll(() => progress.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a)).toBeLessThan(0.9);
   await positionSection(page, "upload-title", 0.28);
   await expect.poll(() => progress.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a)).toBeCloseTo(1, 2);
+  await expect(progress).toHaveCSS("transform", "none");
   await expect(page.locator("#upload-title")).toHaveCSS("opacity", "1");
   await page.screenshot({ path: ".artifacts/motion-workflow.png" });
 
-  // Scroll back: the illustration scrubs, while already-read text stays visible.
+  // Returning to a completed stage keeps the illustration settled.
   await positionSection(page, "upload-title", 0.86);
-  await expect.poll(() => progress.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a)).toBeLessThan(0.9);
+  await expect.poll(() => progress.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a)).toBeCloseTo(1, 2);
+  await expect.poll(() => progress.evaluate((element) => element.getAnimations().length)).toBe(0);
   await expect(page.locator("#upload-title")).toHaveCSS("opacity", "1");
   expect(errors).toEqual([]);
 });
@@ -65,7 +75,7 @@ test("reduced motion works both at first load and when changed during a visit", 
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await ready(page);
+  await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "0");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
   await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "1");
@@ -74,7 +84,7 @@ test("reduced motion works both at first load and when changed during a visit", 
 
 test("layouts remain stable across mobile, tablet and desktop with motion enabled", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  for (const width of [390, 820, 1440]) {
+  for (const width of [320, 390, 820, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await ready(page);
@@ -84,6 +94,18 @@ test("layouts remain stable across mobile, tablet and desktop with motion enable
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", width);
     expect(await page.locator("body").evaluate((element) => element.scrollHeight)).toBe(heightBefore);
   }
+});
+
+test("unsupported animation APIs leave meaningful content immediately readable", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Element.prototype, "animate", { value: undefined, configurable: true });
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await ready(page);
+  await expect(page.locator("#hero-title")).toHaveCSS("opacity", "1");
+  await expect(page.locator("#receipt-title")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".upload-preview")).toHaveCSS("transform", "none");
 });
 
 test("content, navigation and native disclosures work without JavaScript", async ({ browser }) => {
