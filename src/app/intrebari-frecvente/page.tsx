@@ -26,7 +26,7 @@ const questions = [
 
 export default function Faq() {
   return <MarketingShell current="/intrebari-frecvente"><PageHeading eyebrow="ÎNAINTE SĂ ÎNCEPI" title="Câteva răspunsuri clare."><p>Despre aplicație, cont și felul în care funcționează licența.</p></PageHeading>
-    <section className="marketing-faq-list" aria-label="Întrebări și răspunsuri">{questions.map(({ question, answer }, index) => <details key={question} open={index === 0}><summary>{question}<span aria-hidden="true">+</span></summary><div><p>{answer}</p></div></details>)}</section>
-    <section className="marketing-small-faq"><h2>Mai ai o întrebare?</h2><p>Pagina de contact îți arată cum poți lua legătura cu noi când canalul de suport este disponibil.</p><Link className="marketing-text-link" href="/contact">Vezi contactul <span aria-hidden="true">↗</span></Link></section>
+    <section className="marketing-faq-list" aria-label="Întrebări și răspunsuri">{questions.map(({ question, answer }, index) => <details data-motion-reveal key={question} open={index === 0}><summary>{question}<span aria-hidden="true">+</span></summary><div data-motion-disclosure><p>{answer}</p></div></details>)}</section>
+    <section className="marketing-small-faq" data-motion-group><h2>Mai ai o întrebare?</h2><p>Pagina de contact îți arată cum poți lua legătura cu noi când canalul de suport este disponibil.</p><Link className="marketing-text-link" href="/contact">Vezi contactul <span aria-hidden="true">↗</span></Link></section>
   </MarketingShell>;
 }

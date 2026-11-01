@@ -3,6 +3,8 @@ import { mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 test("Romanian marketing routes, navigation and release availability work on desktop and mobile", async ({ page, request }) => {
+  // Deterministic full-page layout captures; motion is exercised separately.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   mkdirSync(".artifacts", { recursive: true });
   const pages = ["/", "/noutati", "/preturi", "/descarcare", "/intrebari-frecvente", "/contact", "/termeni-si-conditii", "/politica-de-confidentialitate"];
   for (const path of pages) {
