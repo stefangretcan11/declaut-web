@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Declaut",
-  description: "Declaut — aplicația desktop pentru lucrul cu declarațiile ANAF.",
+  description: "Declaut — import Excel, declarații ANAF, rectificative și arhivarea recipiselor într-o aplicație pentru Windows.",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

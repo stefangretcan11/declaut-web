@@ -34,9 +34,9 @@ test("Healthy deployment checks all public routes without credentials or account
     return appResponse(path);
   }) as typeof fetch;
   const result = await checkDeployment("https://declaut.example", { fetcher });
-  assert.equal(result.length, 7);
+  assert.equal(result.length, 8);
   assert.equal(result.every((check) => check.ok), true);
-  assert.deepEqual(seen.sort(), ["/", "/api/license", "/contact", "/descarcare", "/intrebari-frecvente", "/login", "/preturi"]);
+  assert.deepEqual(seen.sort(), ["/", "/api/license", "/contact", "/descarcare", "/intrebari-frecvente", "/login", "/noutati", "/preturi"]);
 });
 
 test("A Vercel login redirect and generic protected 401 are failures", async () => {

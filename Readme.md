@@ -5,6 +5,7 @@ Next.js App Router and TypeScript on Vercel, with Supabase Auth/Postgres, Ed2551
 ## Status
 
 - Romanian home, pricing, download, FAQ and contact pages preserve the minimalist design. Pro prices are 300 RON per six months and 500 RON yearly. Missing release/contact/operator data uses explicit unavailable states; workflow previews are labelled illustrative.
+- The homepage, FAQ and new `/noutati` page reflect desktop changes verified against `accounting-automation` main on 1 November 2026: background scanning, configurable/movable archives, D710 alongside D100, submission history and full errors, and the Excel import template. Update dates describe development changes; installer availability still comes from the configured release feed.
 - `POST /api/license` validates Supabase access tokens, requires confirmed email, registers devices, resolves Free/Pro entitlements and signs licenses with `jose`.
 - Free is limited to three firms, reflected in the pricing, FAQ and account pages and signed Free tokens. Pro has no per-account device cap; every eligible account device receives a device-bound Pro token. Pro's firm-limit claims are unchanged.
 - The database migrations include signup profiles, subscriptions, devices, read-only owner RLS and server-only writes. Device registration and entitlement resolution are atomic per account.
