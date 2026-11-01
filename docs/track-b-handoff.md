@@ -66,7 +66,7 @@ curl --fail-with-body "$API_URL/api/license" \
   --data '{"device_id":"desktop-test-1","device_name":"Contabilitate PC"}'
 ```
 
-Success is HTTP 200 with `token`, `plan`, `expires_at`, `device_limit_reached`, `latest_version` and `download_url`. Both release fields remain nullable during outages or when a channel has no eligible release; do not treat null release metadata as an invalid license.
+Success is HTTP 200 with `token`, `plan`, `expires_at`, `latest_version` and `download_url`. The removed `device_limit_reached` flag is no longer returned. Both release fields remain nullable during outages or when a channel has no eligible release; do not treat null release metadata as an invalid license.
 
 Track B supplied [v0.9.0-rc1](https://github.com/mihaicostache1/declaut-release/releases/tag/v0.9.0-rc1), with the public asset `declaut-setup.exe`. GitHub marks it as a prerelease; no stable release was present when checked on 2026-10-24. The local staging configuration opts into the preview feed and resolves `latest_version=0.9.0-rc1` with that installer URL. Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release`, `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe` and `GITHUB_RELEASE_CHANNEL=preview` on the staging Vercel project, then redeploy. The older hosted reference is not automatically updated by local configuration changes. Production keeps `GITHUB_RELEASE_CHANNEL=stable` and never opts into prereleases.
 
@@ -89,8 +89,9 @@ Offline, keep using an unexpired verified license. After expiry, retain Free fun
 - `active` or `trialing` qualifies for Pro until the current period ends.
 - `past_due` qualifies only before both `current_period_start + 72 hours` and the current period end.
 - Other statuses produce Free. Scheduled cancellation preserves Pro until the period end.
-- The two earliest registered devices receive Pro, ordered by registration time and internal ID. Registering a third device returns a **signed Free token** and `device_limit_reached: true`.
-- Removing a device from the account page releases its slot for the next registered device on that device's next license request. The removed installation can register again if it calls the endpoint; removal is not a permanent installation ban.
+- Free is limited to three firms and Free tokens include signed `max_firms: 3`. Pro's firm-limit claims are unchanged.
+- All registered devices receive the account's plan; there is no per-account device cap. A third or later installation on an eligible Pro account receives a signed, device-bound Pro token.
+- Removing a device from the account page deletes its registration. The removed installation can register again if it calls the endpoint and receives the account's plan; removal is not a permanent installation ban.
 - Previously issued tokens remain valid until their expiration. The desktop must refresh after online changes; a removed device cannot be instantly revoked while offline under this contract.
 
 Without a Stripe account, the owner can insert a staging subscription fixture to test Pro. Fixture tests do not prove real checkout or webhook delivery. Approved planned Pro prices are **300 RON per six months** and **500 RON per year**; real Stripe prices are configured separately when the account is available.
@@ -100,8 +101,10 @@ Without a Stripe account, the owner can insert a staging subscription fixture to
 - [ ] Track B acknowledges the proposed v1 field names, claims, token lifetime and offline behavior.
 - [ ] Sign in with the confirmed staging account and refresh its Supabase session.
 - [ ] Verify a Free JWT using the supplied public key and reject a token for another user/device/audience.
-- [ ] Verify Pro with a staging subscription; obtain Free plus the limit flag on a third installation.
-- [ ] Remove one device from the account page and refresh the next device to observe slot promotion.
+- [ ] Apply `20261026000000_remove_device_limit.sql` before deploying the updated license API and pages.
+- [ ] Verify the signed three-firm cap on Free; confirm Pro does not inherit the Free cap.
+- [ ] Verify Pro with a staging subscription on a third and fourth installation, with each token bound to its requesting PC.
+- [ ] Remove one device from the account page and confirm the remaining devices retain Pro.
 - [ ] Confirm an already-issued removed-device token is honored only until its existing expiration.
 - [ ] Handle HTTP 401 by refreshing/signing in; handle HTTP 503 without discarding an unexpired license.
 - [ ] Render null release metadata without hiding or breaking the current app.

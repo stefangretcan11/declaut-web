@@ -151,16 +151,25 @@ test("Past-due grace uses the current period start and expires at 72 hours", asy
   assert.equal((await resolve(outside, "device")).plan, "free");
 });
 
-test("Simultaneous requests grant exactly two Pro devices and the third gets Free", async () => {
+test("Simultaneous requests grant Pro to every device, including existing Free registrations", async () => {
+  const user = await newUser();
+  const devices = ["one", "two", "three", "four", "five"];
+  const free = await Promise.all(devices.map((device) => resolve(user, device)));
+  assert.equal(free.every((result) => result.plan === "free"), true);
+  await subscription(user);
+  const results = await Promise.all(devices.map((device) => resolve(user, device)));
+  for (const result of results) {
+    assert.equal(result.plan, "pro");
+    assert.equal(result.device_limit_reached, false);
+    assert.ok(result.pro_until > new Date());
+  }
+  assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, devices.length);
+});
+
+test("New Pro registrations have no device cap", async () => {
   const user = await newUser(); await subscription(user);
-  const results = await Promise.all(["one", "two", "three"].map((device) => resolve(user, device)));
-  assert.equal(results.filter((r) => r.plan === "pro").length, 2);
-  assert.equal(results.filter((r) => r.plan === "free" && r.device_limit_reached).length, 1);
-  const { rows } = await admin.query("select device_id from public.devices where user_id = $1 order by created_at, id", [user]);
-  assert.equal((await resolve(user, rows[0].device_id)).plan, "pro");
-  assert.equal((await resolve(user, rows[2].device_id)).device_limit_reached, true);
-  await admin.query("delete from public.devices where user_id = $1 and device_id = $2", [user, rows[0].device_id]);
-  assert.equal((await resolve(user, rows[2].device_id)).plan, "pro");
+  const results = await Promise.all(["one", "two", "three", "four"].map((device) => resolve(user, device)));
+  assert.equal(results.every((result) => result.plan === "pro" && !result.device_limit_reached), true);
 });
 
 test("Unknown Stripe prices cannot grant Pro through the database resolver", async () => {
@@ -188,14 +197,17 @@ test("Device removal is server-only, owner-scoped and idempotent", async () => {
   assert.equal((await admin.query("select id from public.devices where id = $1", [foreignId])).rowCount, 1);
 });
 
-test("Removing a Pro device while another refreshes frees the slot on the next request", async () => {
+test("Removing a device during another refresh preserves Pro; removed devices can register again", async () => {
   const user = await newUser(); await subscription(user);
   await resolve(user, "first"); await resolve(user, "second"); await resolve(user, "third");
+  assert.equal((await resolve(user, "third")).plan, "pro");
   const firstId = (await admin.query("select id from public.devices where user_id = $1 and device_id = 'first'", [user])).rows[0].id;
   const server = await session("service_role");
   try {
     await Promise.all([server.query("select public.remove_own_device($1, $2)", [user, firstId]), resolve(user, "third")]);
     assert.equal((await resolve(user, "third")).plan, "pro");
     assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 2);
+    assert.equal((await resolve(user, "first")).plan, "pro");
+    assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 3);
   } finally { await server.end(); }
 });

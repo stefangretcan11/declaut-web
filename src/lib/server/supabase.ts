@@ -28,7 +28,6 @@ export async function authenticate(accessToken: string) {
 
 const entitlementSchema = z.object({
   plan: z.enum(["free", "pro"]),
-  device_limit_reached: z.boolean(),
   pro_until: z.string().nullable(),
 });
 

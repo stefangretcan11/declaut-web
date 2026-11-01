@@ -3,6 +3,7 @@ import { getSiteConfig } from "@/lib/site-config";
 import "@/app/marketing.css";
 
 const links = [
+  { href: "/noutati", label: "Noutăți" },
   { href: "/preturi", label: "Prețuri" },
   { href: "/descarcare", label: "Descarcă" },
   { href: "/intrebari-frecvente", label: "Întrebări" },
