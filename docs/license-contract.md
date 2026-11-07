@@ -65,6 +65,7 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
   "sub": "<Supabase-user-UUID>",
   "device_id": "4d51fb5c-1cac-4af6-9606-eb9f682037ba",
   "plan": "pro",
+  "pro_until": "2027-04-24T12:00:00.000Z",
   "iss": "declaut-staging",
   "aud": "declaut-desktop",
   "iat": 1792843200,
@@ -75,6 +76,7 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
 - Verify the signature, pin `EdDSA`, resolve the trusted public key by `kid`, check `iss`, `aud`, `exp`, `v`, and match `sub` and `device_id` to the signed-in user and local installation.
 - Enforce the plan from the verified JWT. Other JSON fields are convenience metadata, not offline proof of entitlement.
 - Free tokens include `max_firms: 3`, matching the desktop Free cap. Pro tokens retain their existing claims and do not inherit this Free cap.
+- Pro tokens include `pro_until`, the known entitlement deadline as an ISO 8601 UTC string. It is the subscription period end, capped by the payment-grace deadline for `past_due` subscriptions, and may be later than `exp`. Free tokens omit it. Use this verified claim for the Cont panel's “Pro până la …” date; `exp` still governs token validity. Older tokens may lack the claim; omit the date until a refresh supplies it.
 - Default maximum token lifetime is 24 hours. Pro tokens expire earlier at the known subscription end or payment-grace deadline.
 - Suggested desktop refresh: on sign-in/startup, every six hours while online, and after billing/device changes. Supabase access tokens may expire sooner; refresh those separately.
 - Offline: honor a valid license until `exp`; after expiry, keep Free functionality and require an online refresh for Pro.
@@ -85,7 +87,12 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
 
 `active` and `trialing` qualify for Pro while the current period has not ended. `past_due` qualifies only before `current_period_start + 72 hours` and before `current_period_end`. All other statuses qualify for Free. `cancel_at_period_end=true` preserves Pro until the current period ends. The server ignores future periods until they start. When multiple eligible subscriptions exist, use the latest entitlement deadline.
 
-Free is limited to three firms. The website does not introduce a new firm limit for Pro.
+| Rule | Limit |
+| --- | --- |
+| Firms on Free | 3 |
+| Devices per account, Free and Pro | No limit |
+
+The website does not introduce a new firm limit for Pro.
 
 There is no per-account device cap. Every device receives the account's subscription entitlement, including devices registered while the account was Free. Device registration and plan resolution run in one transaction, locked per profile. Each signed token still binds `device_id` to the installation that requested it. The HTTP response no longer includes `device_limit_reached`.
 
@@ -95,7 +102,7 @@ An issued JWT remains usable until expiry. Device removal or an immediate subscr
 
 ## Release metadata
 
-Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release` and `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe`. By default, read GitHub's latest stable release. Staging may opt into `GITHUB_RELEASE_CHANNEL=preview`, selecting the newest published non-draft entry from the latest 30 releases, including prereleases. The option is honored only when the issuer is `declaut-staging`; production always uses the stable feed. Strip a leading `v` before a numeric version and preserve prerelease suffixes. Only credential-free HTTPS download URLs under the configured GitHub repository are accepted.
+Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release` and `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe`. By default, read GitHub's latest stable release. Staging may opt into `GITHUB_RELEASE_CHANNEL=preview`, selecting the newest published non-draft entry from the latest 30 releases, including prereleases but excluding tags containing `-pro` (case-insensitive). The option is honored only when the issuer is `declaut-staging`; production always uses the stable feed. Strip a leading `v` before a numeric version and preserve prerelease suffixes. Only credential-free HTTPS download URLs under the configured GitHub repository are accepted.
 
 Successful results are cached for one hour with Next.js fetch caching and an instance cache. Failed refreshes reuse the instance's last success when available, otherwise return null metadata; retries are throttled to one minute. A cold server instance may have no fallback.
 

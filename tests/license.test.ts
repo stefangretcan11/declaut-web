@@ -25,6 +25,7 @@ test("Free license verifies with the public key and binds user, device, audience
   assert.equal(payload.device_id, "device-1");
   assert.equal(payload.plan, "free");
   assert.equal(payload.max_firms, 3);
+  assert.equal(Object.hasOwn(payload, "pro_until"), false);
   assert.equal(payload.v, 1);
   assert.equal(expires_at, "2026-10-25T12:00:00.000Z");
   await assert.rejects(jwtVerify(token, publicKey, { audience: "other-app", currentDate: now }));
@@ -40,8 +41,26 @@ test("Pro token expiry cannot exceed the payment grace period or subscription en
   const { payload } = await jwtVerify(token, await importSPKI(keys.publicKey, "EdDSA"), { currentDate: now });
   assert.equal(payload.plan, "pro");
   assert.equal(payload.device_id, "device-1");
+  assert.equal(payload.pro_until, "2026-10-24T13:00:00.000Z");
+  assert.equal(payload.exp, Date.parse(boundary) / 1000);
   assert.equal(Object.hasOwn(payload, "max_firms"), false, "Free's firm cap must not apply to Pro");
   await assert.rejects(sign("user-1", "device-1", { ...free, plan: "pro", pro_until: now.toISOString() }, now));
+});
+
+test("Pro tokens retain the entitlement deadline beyond their 24-hour token lifetime", async () => {
+  const { token, expires_at } = await sign("user-1", "device-1", { plan: "pro", pro_until: "2027-04-24T15:00:00+03:00" }, now);
+  const publicKey = await importSPKI(keys.publicKey, "EdDSA");
+  const { payload } = await jwtVerify(token, publicKey, { currentDate: now });
+  assert.equal(payload.pro_until, "2027-04-24T12:00:00.000Z");
+  assert.equal(expires_at, "2026-10-25T12:00:00.000Z");
+  assert.equal(payload.exp, Date.parse(expires_at) / 1000);
+  await assert.rejects(jwtVerify(token, publicKey, { currentDate: new Date(expires_at) }));
+});
+
+test("Pro tokens require a valid future entitlement deadline", async () => {
+  for (const pro_until of [null, "invalid", "2026-10-24T11:59:59Z"]) {
+    await assert.rejects(sign("user-1", "device-1", { plan: "pro", pro_until }, now));
+  }
 });
 
 function request(body: unknown = { device_id: "desktop-1", device_name: "Office PC" }, token = "access-token") {
@@ -84,6 +103,7 @@ test("HTTP handler issues device-bound Pro tokens on every registered PC", async
     const { payload } = await jwtVerify(result.token, await importSPKI(keys.publicKey, "EdDSA"), { currentDate: now });
     assert.equal(payload.plan, "pro");
     assert.equal(payload.device_id, device);
+    assert.equal(payload.pro_until, "2026-11-24T12:00:00.000Z");
   }
 });
 

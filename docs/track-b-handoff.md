@@ -82,6 +82,8 @@ The complete validation rules, response example and error table are in [license-
 
 Tokens last no more than 24 hours. Pro expires sooner when the known subscription period or past-due grace deadline is earlier. Refresh at startup/sign-in, approximately every six hours while online, and after account/device changes. Supabase access-token refresh remains separate.
 
+Pro JWTs include a signed `pro_until` claim as an ISO 8601 UTC string, representing the subscription period end or earlier payment-grace deadline. Use it for “Pro până la …” in the Cont panel. It can be later than `exp`; token validity still ends at `exp`. Free tokens omit `pro_until`. If an older Pro token lacks it, omit the date until the next refresh.
+
 Offline, keep using an unexpired verified license. After expiry, retain Free functionality and ask for an online refresh before restoring Pro. During a temporary HTTP 503, honor `Retry-After` with backoff and preserve any unexpired license.
 
 ## Subscription and device behavior
@@ -103,6 +105,7 @@ Without a Stripe account, the owner can insert a staging subscription fixture to
 - [ ] Verify a Free JWT using the supplied public key and reject a token for another user/device/audience.
 - [ ] Apply `20261026000000_remove_device_limit.sql` before deploying the updated license API and pages.
 - [ ] Verify the signed three-firm cap on Free; confirm Pro does not inherit the Free cap.
+- [ ] Verify Pro's signed `pro_until` matches the entitlement deadline, including payment grace, while `exp` remains capped at 24 hours. Display `pro_until` in the Cont panel only after verifying the token.
 - [ ] Verify Pro with a staging subscription on a third and fourth installation, with each token bound to its requesting PC.
 - [ ] Remove one device from the account page and confirm the remaining devices retain Pro.
 - [ ] Confirm an already-issued removed-device token is honored only until its existing expiration.

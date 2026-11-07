@@ -23,18 +23,20 @@ export function createLicenseSigner(config: SigningConfig) {
   ): Promise<{ token: string; expires_at: string }> {
     const issuedAt = Math.floor(now.getTime() / 1000);
     let expiresAt = issuedAt + LICENSE_TTL_SECONDS;
+    let proUntil: string | undefined;
     if (entitlement.plan === "pro") {
       const boundary = Date.parse(entitlement.pro_until ?? "");
       if (!Number.isFinite(boundary)) throw new Error("Invalid Pro entitlement boundary");
       expiresAt = Math.min(expiresAt, Math.floor(boundary / 1000));
       if (expiresAt <= issuedAt) throw new Error("Pro entitlement expired during issuance");
+      proUntil = new Date(boundary).toISOString();
     }
     key ??= importPKCS8(config.privateKeyPem, "EdDSA");
     const token = await new SignJWT({
       v: 1,
       device_id: deviceId,
       plan: entitlement.plan,
-      ...(entitlement.plan === "free" ? { max_firms: FREE_MAX_FIRMS } : {}),
+      ...(entitlement.plan === "free" ? { max_firms: FREE_MAX_FIRMS } : { pro_until: proUntil }),
     })
       .setProtectedHeader({ alg: "EdDSA", typ: "JWT", kid: config.keyId })
       .setSubject(userId)
