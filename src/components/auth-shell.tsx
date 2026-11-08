@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSiteConfig } from "@/lib/site-config";
 
 export function AuthShell({ eyebrow = "CONTUL TĂU", title, description, children, footer }: {
   eyebrow?: string;
@@ -10,7 +11,7 @@ export function AuthShell({ eyebrow = "CONTUL TĂU", title, description, childre
   return <main className="site-shell auth-shell">
     <header className="site-header">
       <Link className="wordmark" href="/" aria-label="Declaut, pagina principală">declaut<span>.</span></Link>
-      <span className="environment-label">Mediu de testare</span>
+      {getSiteConfig().isStaging && <span className="environment-label">Mediu de testare</span>}
     </header>
     <div className="auth-content">
       <div className="auth-heading"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="description">{description}</p></div>

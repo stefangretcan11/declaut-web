@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { z } from "zod";
 import { sessionClient } from "@/lib/server/session";
-import { confirmSchema, emailSchema, loginSchema, requestOrigin, resetSchema, signupSchema, siteOrigin, TERMS_VERSION, trustedOrigin } from "@/lib/auth/validation";
+import { acceptTermsSchema, confirmSchema, currentTermsVersion, emailSchema, loginSchema, requestOrigin, resetSchema, signupSchema, siteOrigin, trustedOrigin } from "@/lib/auth/validation";
+import { acceptCurrentTerms } from "@/lib/server/supabase";
 import { authMessages } from "@/lib/auth/messages";
 
 export const runtime = "nodejs";
 const noStore = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
-const paths: Record<string, string> = { signup: "/signup", login: "/login", "forgot-password": "/forgot-password", "resend-confirmation": "/resend-confirmation", "reset-password": "/reset-password", confirm: "/login", logout: "/account" };
+const paths: Record<string, string> = { signup: "/signup", login: "/login", "forgot-password": "/forgot-password", "resend-confirmation": "/resend-confirmation", "reset-password": "/reset-password", confirm: "/login", logout: "/account", "accept-terms": "/account" };
 
 async function bodyData(request: Request): Promise<Record<string, unknown>> {
   const reader = request.body?.getReader();
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   if (!trustedOrigin(baseUrl, request.headers.get("origin"))) return respond(paths[action], undefined, "invalid_request", undefined, 403);
   let input: Record<string, unknown>;
   try { input = await bodyData(request); } catch { return respond(paths[action], undefined, "invalid_request"); }
-  const schemas: Record<string, z.ZodType> = { signup: signupSchema, login: loginSchema, "forgot-password": emailSchema, "resend-confirmation": emailSchema, "reset-password": resetSchema, confirm: confirmSchema };
+  const schemas: Record<string, z.ZodType> = { signup: signupSchema, login: loginSchema, "forgot-password": emailSchema, "resend-confirmation": emailSchema, "reset-password": resetSchema, confirm: confirmSchema, "accept-terms": acceptTermsSchema };
   const validated = action === "logout" ? undefined : schemas[action].safeParse(input);
   if (validated && !validated.success) {
     const fields: Record<string, string> = {};
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       const data = signupSchema.parse(input);
       const result = await supabase.auth.signUp({ email: data.email, password: data.password, options: {
         emailRedirectTo: `${origin}/auth/callback`,
-        data: { company_name: data.company_name, cui: data.cui, terms_accepted: true, terms_version: TERMS_VERSION },
+        data: { company_name: data.company_name, cui: data.cui, terms_accepted: true, terms_version: currentTermsVersion() },
       } });
       if (result.error) return respond(paths[action], undefined, authError(result.error));
       // This flow requires confirmation; do not silently accept autoconfirmed signups.
@@ -91,6 +92,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       // fails or an address-specific send limit is reached. Log no email values.
       if (error) console.warn("auth.email.request_failed", { action, code: authError(error) });
       return respond("/check-email", "reset_sent");
+    }
+    if (action === "accept-terms") {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user?.email_confirmed_at || data.user.is_anonymous) return respond("/login", undefined, "session_required", undefined, 401);
+      await acceptCurrentTerms(data.user.id, currentTermsVersion());
+      return respond("/account", "terms_accepted");
     }
     if (action === "resend-confirmation") {
       const { email } = emailSchema.parse(input);

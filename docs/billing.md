@@ -1,6 +1,6 @@
 # Stripe billing implementation and test setup
 
-The integration is implemented and fixture-tested. No Stripe account, real test keys or provider webhook endpoint has been configured yet; real Checkout and Customer Portal acceptance remain pending.
+Current state — 8 November 2026: Stripe and Oblio integrations are implemented and fixture-tested. Live checkout requires explicit production/fiscal acceptance gates. Provider credentials are not available in this local checkout; hosted provider configuration has not been inspected. Follow [production setup](production-setup.md). Real Checkout, Portal, fiscal and SPV acceptance remain pending.
 
 ## Plans approved by the owner
 
@@ -19,16 +19,16 @@ Trial eligibility is determined server-side from the bound Stripe customer's sub
 
 Subscription webhook snapshots use `trial_start` and `trial_end` while status is `trialing`, so the account date and signed Pro deadline cannot extend into the later paid period. Active subscriptions use the actual paid item period. Zero-amount trial invoices have `fiscal_status=not_due` after `20261108010000_zero_amount_invoices.sql`; they do not queue a fiscal invoice. Both plans, including Pro trials, allow one active device per account.
 
-Provider acceptance must verify card collection, no initial charge, one-time eligibility, cancellation before charging, automatic first payment after 30 days and the full 6- or 12-month period after that payment. This is pending real Stripe access. Live billing remains disabled under the existing fiscal-invoicing release gate.
+Provider acceptance must verify card collection, no initial charge, one-time eligibility, cancellation before charging, automatic first payment after 30 days and the full 6- or 12-month period after that payment. This is pending real Stripe access. Live billing remains disabled until provider acceptance and both release flags are set.
 
 Sources: [Stripe Checkout Session parameters](https://docs.stripe.com/api/checkout/sessions/create), [Stripe trial behavior](https://docs.stripe.com/api/subscriptions/update).
 
 ## Configure a Stripe sandbox
 
-After the owner creates the Stripe account:
+Use a separate Stripe test environment and isolated staging Supabase project. The former staging database is now production and rejects test-mode billing. Production provisioning is documented in [production setup](production-setup.md). For an isolated sandbox:
 
 1. Create product **Declaut Pro** and the two recurring RON prices above in the sandbox/test environment.
-2. Configure the Customer Portal to allow switching between those prices, updating the card, viewing payment documents and canceling at the end of the current period. Keep quantity changes disabled for this single-license product.
+2. Configure a dedicated Customer Portal for updating the card, viewing payment documents and canceling at the end of the current period. Keep subscription plan changes disabled initially to avoid unsupported proration/credit invoices. Keep quantity changes disabled for this single-license product.
 3. Configure these server environment variables on the dedicated staging Vercel project:
 
 ```text
@@ -53,7 +53,7 @@ invoice.payment_failed
 5. Use an event/API version matching the locked Stripe SDK. The installed Stripe 23.0.1 SDK uses `2026-09-30.endive`; verify this again when upgrading. Subscription period timestamps are read from the subscription item, not obsolete top-level fields.
 6. Redeploy, then verify actual test-card checkout, portal access, subscription renewal/cancellation, failure grace and webhook replay. This is separate from the tests already run against fixtures.
 
-Keep all Stripe secret and webhook keys server-side. Live keys deliberately fail closed in this milestone: A6 fiscal invoicing and its acceptance checks must exist before real money can be accepted.
+Keep provider keys server-side. Live checkout requires the pinned production identity, matching supplier CUI, valid Oblio configuration, a dedicated portal, and `FISCAL_LIVE_READY=true` plus `BILLING_LIVE_ENABLED=true`. Checkout also requires the current commercial agreement. Cancellation and reconciliation remain available when new sales are disabled.
 
 ## HTTP endpoints
 
@@ -77,11 +77,13 @@ Each subscription reconciliation allocates a database generation before retrieva
 
 Only allowlisted price IDs with the approved amounts and intervals set `subscriptions.is_pro=true`. Unexpected or mixed plans retain their actual Stripe status but fail closed for Pro access. Both the account summary and desktop license resolver honor this flag. Manually inserted staging subscription fixtures default to true for Track A/Track B testing.
 
-## Payment documents and A6
+## Oblio fiscal invoices
 
 `billing_invoices` stores the Stripe invoice ID, customer owner, subscription, status, paid amount, currency and safe Stripe document URLs. Owner-only RLS allows users to read their own records, with all writes through the server. The table also reserves separate fields for fiscal issuance state, fiscal number and provider PDF URL.
 
-This code does **not** issue Romanian fiscal invoices or submit to e-Factura. A paid Stripe invoice records `fiscal_status=pending`; an unpaid document is `not_due`. Stripe webhook retries preserve fiscal fields that a future A6 integration has already issued. The account explicitly distinguishes Stripe payment documents from fiscal invoices.
+A positive paid live RON invoice queues Oblio issuance; zero/unpaid invoices are `not_due`. Live webhook processing retrieves the authoritative invoice and buyer details, then issues with an invoice-scoped Oblio idempotency key and stable issue date. Successful issuance persists the fiscal number and safe provider URL. A failure remains retryable through Stripe and the authenticated daily cron. Test-mode events never issue real invoices.
+
+The configured supplier is non-VAT-paying, CUI 26143268, series F, explicit VAT 0. VAT names are discovered from the account nomenclature. Missing Romanian buyer details and amounts differing from the invoice total require review. Oblio SPV auto-send must be configured and verified in the provider account; document creation does not prove ANAF acceptance. Follow the production guide for credentials, retries and acceptance. The account distinguishes Stripe payment documents from fiscal invoices.
 
 ## Verification already performed
 

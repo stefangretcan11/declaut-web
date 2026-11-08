@@ -110,3 +110,21 @@ test("Zero-amount trial invoices do not queue a fiscal invoice", async () => {
   assert.equal((await admin.query("select fiscal_status from public.billing_invoices where id=$1", [invoice.id])).rows[0].fiscal_status, "not_due");
   assert.equal((await admin.query("select plan from public.resolve_device_license($1,'trial-pc','Trial PC')", [owner])).rows[0].plan, "pro");
 });
+
+test("Fiscal completion is owner-scoped, retry-safe, and preserves one document and issue date", async () => {
+  const owner = await user(); const other = await user(); await bind(owner, "cus_fiscal");
+  const sub = snapshot("sub_fiscal", "cus_fiscal");
+  await apply(await begin(sub.id), sub, { id: "in_fiscal", subscription_id: sub.id, status: "paid", currency: "ron", amount_paid: 30000, stripe_invoice_number: null, stripe_hosted_invoice_url: null, stripe_invoice_pdf_url: null, created_at: new Date().toISOString() });
+  const date = (await admin.query("select public.claim_fiscal_invoice_date('in_fiscal',$1)::text as value", [owner])).rows[0].value;
+  assert.match(date, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal((await admin.query("select public.claim_fiscal_invoice_date('in_fiscal',$1)::text as value", [owner])).rows[0].value, date);
+  const complete = async (userId: string, number = "F 1", url = "https://www.oblio.eu/utils/show_file/?id=test") => (await admin.query("select public.complete_fiscal_invoice('in_fiscal',$1,$2,$3) as value", [userId, number, url])).rows[0].value;
+  assert.equal(await complete(other), false);
+  assert.equal(await complete(owner, "F 1", "https://oblio.eu.evil.test/invoice"), false);
+  assert.equal(await complete(owner), true);
+  assert.equal(await complete(owner), true);
+  assert.equal(await complete(owner, "F 2"), false);
+  const browser = connection(); await browser.connect(); await browser.query("set role authenticated");
+  try { await assert.rejects(browser.query("select public.complete_fiscal_invoice('in_fiscal',$1,'F 9','https://oblio.eu/')", [owner]), /permission denied/); }
+  finally { await browser.end(); }
+});

@@ -2,11 +2,13 @@ import { z } from "zod";
 import { BillingError, type BillingConfig } from "./config";
 import { invoiceSnapshot, stripeId, subscriptionSnapshot } from "./snapshots";
 import type { BillingStore, InvoiceSnapshot, StripeGateway } from "./types";
+import { issueFiscalInvoice } from "./fiscal";
+import { FiscalError, type FiscalIssuer } from "./oblio";
 
 const supported = new Set(["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed"]);
 const eventSchema = z.object({ id: z.string().regex(/^evt_/), type: z.string(), livemode: z.boolean(), data: z.object({ object: z.object({ id: z.string() }) }) });
 
-export function createWebhookHandler(deps: { config(): BillingConfig; stripe(config: BillingConfig): StripeGateway; store(): BillingStore }) {
+export function createWebhookHandler(deps: { config(): BillingConfig; stripe(config: BillingConfig): StripeGateway; store(): BillingStore; fiscal?: FiscalIssuer }) {
   return async function POST(request: Request): Promise<Response> {
     try {
       const config = deps.config();
@@ -30,7 +32,8 @@ export function createWebhookHandler(deps: { config(): BillingConfig; stripe(con
       let event;
       try { event = eventSchema.parse(stripe.event(Buffer.concat(chunks).toString("utf8"), signature, config.webhookSecret)); }
       catch { throw new BillingError(400, "invalid_signature"); }
-      if (event.livemode) throw new BillingError(400, "billing_mode_mismatch");
+      if (event.livemode !== (config.mode === "live")) throw new BillingError(400, "billing_mode_mismatch");
+      if (config.mode === "live" && !deps.fiscal) throw new BillingError(503, "fiscal_unavailable");
       if (!supported.has(event.type)) return Response.json({ received: true, ignored: true });
       const store = deps.store();
       if (await store.eventProcessed(event.id)) return Response.json({ received: true, duplicate: true });
@@ -65,12 +68,13 @@ export function createWebhookHandler(deps: { config(): BillingConfig; stripe(con
       if (!owner) return Response.json({ received: true, ignored: true });
       if ((checkoutOwner && checkoutOwner !== owner) || (checkoutCustomer && checkoutCustomer !== snapshot.customer_id) || (invoice && invoice.customer_id !== snapshot.customer_id)) throw new BillingError(400, "billing_customer_mismatch");
       if (!await store.applySync(generation, snapshot, invoice)) throw new BillingError(503, "billing_sync_in_progress");
+      if (invoice && config.mode === "live") await issueFiscalInvoice(store, deps.fiscal!, invoice, owner);
       await store.completeEvent(event.id, event.type);
       return Response.json({ received: true });
     } catch (error) {
       const known = error instanceof BillingError;
       const status = known ? error.status : 503;
-      return Response.json({ error: { code: known ? error.code : "billing_sync_unavailable" } }, { status, headers: { "Cache-Control": "no-store", ...(status === 503 ? { "Retry-After": "30" } : {}) } });
+      return Response.json({ error: { code: known || error instanceof FiscalError ? error.code : "billing_sync_unavailable" } }, { status, headers: { "Cache-Control": "no-store", ...(status === 503 ? { "Retry-After": "30" } : {}) } });
     }
   };
 }

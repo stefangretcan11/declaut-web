@@ -2,7 +2,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { sessionClient } from "./session";
-import { supabaseEnv } from "./env";
+import { signingEnv, supabaseEnv } from "./env";
 import { BillingError, readBillingConfig, type BillingConfig } from "../billing/config";
 import { createStripeGateway } from "../billing/stripe-adapter";
 import type { BillingDependencies } from "../billing/http";
@@ -22,7 +22,7 @@ export function billingStore(): BillingStore {
   const db = database();
   return {
     async getProfile(userId) {
-      const { data, error } = await db.from("profiles").select("id,email,company_name,cui,stripe_customer_id").eq("id", userId).single();
+      const { data, error } = await db.from("profiles").select("id,email,company_name,cui,stripe_customer_id,terms_version,terms_accepted_at").eq("id", userId).single();
       dbError(error);
       if (!data) throw new BillingError(503, "billing_database_unavailable");
       return data as BillingProfile;
@@ -46,6 +46,19 @@ export function billingStore(): BillingStore {
     async beginSync(subscriptionId) { const { data, error } = await db.rpc("begin_billing_sync", { p_subscription_id: subscriptionId }); dbError(error); const value = Number(data); if (!Number.isSafeInteger(value) || value < 1) throw new BillingError(503, "billing_database_unavailable"); return value; },
     async applySync(generation, subscription, invoice) { const { data, error } = await db.rpc("apply_billing_sync", { p_generation: generation, p_subscription: subscription, p_invoice: invoice ?? null }); dbError(error); return data === true; },
     async completeEvent(eventId, type) { const { error } = await db.from("billing_webhook_events").upsert({ id: eventId, event_type: type }, { onConflict: "id" }); dbError(error); },
+    async fiscalIssued(invoiceId, userId) {
+      const { data, error } = await db.from("billing_invoices").select("fiscal_status").eq("id", invoiceId).eq("user_id", userId).single();
+      dbError(error); if (!data) throw new BillingError(503, "billing_database_unavailable");
+      return data.fiscal_status === "issued";
+    },
+    async fiscalIssueDate(invoiceId, userId) {
+      const { data, error } = await db.rpc("claim_fiscal_invoice_date", { p_invoice_id: invoiceId, p_user_id: userId });
+      dbError(error); return z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(data);
+    },
+    async completeFiscal(invoiceId, userId, number, url) {
+      const { data, error } = await db.rpc("complete_fiscal_invoice", { p_invoice_id: invoiceId, p_user_id: userId, p_number: number, p_url: url });
+      dbError(error); return data === true;
+    },
   };
 }
 
@@ -60,7 +73,13 @@ export function billingDependencies(portal = false): BillingDependencies {
       if (!data.user.email_confirmed_at || data.user.is_anonymous || !data.user.email) throw new BillingError(403, "email_confirmation_required");
       return { id: data.user.id, email: data.user.email };
     },
-    config: () => readBillingConfig(process.env, false, portal),
+    config: () => {
+      const config = readBillingConfig(process.env, false, portal);
+      if (config.mode === "live" && !portal) {
+        try { signingEnv(); } catch { throw new BillingError(503, "license_unavailable"); }
+      }
+      return config;
+    },
     store: billingStore, stripe: stripeGateway, siteUrl: process.env.SITE_URL,
   };
 }

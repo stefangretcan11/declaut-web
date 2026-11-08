@@ -56,6 +56,10 @@ export function subscriptionSnapshot(value: unknown, config: BillingConfig): Sub
 const invoiceSchema = z.object({
   id: z.string().regex(/^in_/), customer: reference, status: z.string().nullable(), currency: z.string(), amount_paid: z.number().int().nonnegative(),
   number: z.string().nullable(), hosted_invoice_url: z.string().nullable(), invoice_pdf: z.string().nullable(), created: z.number().int(),
+  total: z.number().int().optional(),
+  customer_name: z.string().nullable().optional(), customer_email: z.string().nullable().optional(),
+  customer_tax_ids: z.array(z.object({ type: z.string(), value: z.string() })).optional(),
+  customer_address: z.object({ line1: z.string().nullable().optional(), line2: z.string().nullable().optional(), city: z.string().nullable().optional(), state: z.string().nullable().optional(), country: z.string().nullable().optional() }).nullable().optional(),
   parent: z.object({ subscription_details: z.object({ subscription: reference }).nullable().optional() }).nullable().optional(),
   subscription: reference.nullable().optional(),
 });
@@ -71,6 +75,8 @@ export function invoiceSnapshot(value: unknown): InvoiceSnapshot {
   if (!subscriptionId) throw new BillingError(400, "invoice_without_subscription");
   return {
     id: invoice.id, customer_id: stripeId(invoice.customer)!, subscription_id: subscriptionId, status: invoice.status ?? "draft", currency: invoice.currency, amount_paid: invoice.amount_paid,
+    total: invoice.total,
+    buyer: { name: invoice.customer_name, email: invoice.customer_email, cui: invoice.customer_tax_ids?.find((id) => id.type === "eu_vat")?.value.replace(/\s/g, "").toUpperCase(), address: [invoice.customer_address?.line1, invoice.customer_address?.line2].filter(Boolean).join(", "), city: invoice.customer_address?.city, state: invoice.customer_address?.state, country: invoice.customer_address?.country },
     stripe_invoice_number: invoice.number,
     stripe_hosted_invoice_url: stripeDocument(invoice.hosted_invoice_url, "invoice.stripe.com"),
     stripe_invoice_pdf_url: stripeDocument(invoice.invoice_pdf, "pay.stripe.com"),

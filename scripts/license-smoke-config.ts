@@ -8,6 +8,7 @@ type PublicSmokeConfig = {
   supabasePublishableKey: string | null;
   apiBaseUrl: string | null;
   license: { issuer: string; audience: string };
+  supabaseProjectPromotedFromStaging?: boolean;
 };
 
 // Validate the destination and pinned identity before creating any fixtures or
@@ -27,6 +28,7 @@ export function licenseSmokeConfig(
     throw new Error(`Complete docs/track-b-${environment === "production" ? "production" : "public"}-config.json with verified public configuration first`);
   }
   const supabaseUrl = deploymentOrigin(config.supabaseUrl);
+  if (environment === "staging" && supabaseUrl === production.supabaseUrl) throw new Error("This Supabase project is now production; configure a separate staging project before creating fixtures");
   const configuredApi = deploymentOrigin(config.apiBaseUrl);
   if (required("LICENSE_ISSUER") !== config.license.issuer || required("LICENSE_AUDIENCE") !== config.license.audience) {
     throw new Error("Signing issuer/audience does not match the selected environment");
@@ -42,7 +44,7 @@ export function licenseSmokeConfig(
   const api = deploymentOrigin(env.LICENSE_API_URL ?? (environment === "staging" ? "http://127.0.0.1:3100" : configuredApi), { allowLocal: environment === "staging" });
   if (environment === "production" && api !== configuredApi) throw new Error("License API origin does not match the production public handoff");
   if (environment === "staging" && api === production.apiBaseUrl) throw new Error("Staging must not send access tokens to the production API");
-  if (environment === "production" && (supabaseUrl === staging.supabaseUrl || [staging.apiBaseUrl, staging.stableApiBaseUrl].includes(api))) {
+  if (environment === "production" && ((supabaseUrl === staging.supabaseUrl && !config.supabaseProjectPromotedFromStaging) || [staging.apiBaseUrl, staging.stableApiBaseUrl].includes(api))) {
     throw new Error("Production must use a separate Supabase project and API origin");
   }
   return { api, supabaseUrl, publishableKey: config.supabasePublishableKey, serverKey: required("SUPABASE_SERVICE_ROLE_KEY"), issuer: config.license.issuer, audience: config.license.audience, keyId, publicKey };

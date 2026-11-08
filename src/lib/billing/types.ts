@@ -1,7 +1,7 @@
 import type { BillingInterval } from "./config";
 
 export type BillingUser = { id: string; email: string };
-export type BillingProfile = { id: string; email: string; company_name: string | null; cui: string | null; stripe_customer_id: string | null };
+export type BillingProfile = { id: string; email: string; company_name: string | null; cui: string | null; stripe_customer_id: string | null; terms_version?: string | null; terms_accepted_at?: string | null };
 export type SubscriptionSnapshot = {
   id: string;
   customer_id: string;
@@ -19,6 +19,9 @@ export type InvoiceSnapshot = {
   status: string;
   currency: string;
   amount_paid: number;
+  total?: number;
+  fiscal_issue_date?: string;
+  buyer?: { name?: string | null; email?: string | null; cui?: string; address?: string; city?: string | null; state?: string | null; country?: string | null };
   stripe_invoice_number: string | null;
   stripe_hosted_invoice_url: string | null;
   stripe_invoice_pdf_url: string | null;
@@ -38,6 +41,9 @@ export interface BillingStore {
   beginSync(subscriptionId: string): Promise<number>;
   applySync(generation: number, subscription: SubscriptionSnapshot, invoice?: InvoiceSnapshot): Promise<boolean>;
   completeEvent(eventId: string, type: string): Promise<void>;
+  fiscalIssued(invoiceId: string, userId: string): Promise<boolean>;
+  fiscalIssueDate(invoiceId: string, userId: string): Promise<string>;
+  completeFiscal(invoiceId: string, userId: string, number: string, url: string): Promise<boolean>;
 }
 
 export interface StripeGateway {

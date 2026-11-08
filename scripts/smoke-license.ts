@@ -1,17 +1,25 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { importJWK, jwtVerify } from "jose";
 import type { LicenseResponse } from "../src/lib/license/types";
 import { FREE_MAX_FIRMS } from "../src/lib/license/plans";
 import { licenseSmokeConfig } from "./license-smoke-config";
+import { currentTermsVersion } from "../src/lib/auth/validation";
 
 let step = "configuration";
+let inspectedOrigin: string | undefined;
+function recordAcceptance(ok: boolean) {
+  mkdirSync(".artifacts", { recursive: true });
+  writeFileSync(".artifacts/production-license-acceptance.json", JSON.stringify({ origin: inspectedOrigin, ok, step, checkedAt: new Date().toISOString() }, null, 2) + "\n");
+}
 
 async function main() {
   const environment = process.argv.find((arg) => arg.startsWith("--environment="))?.split("=")[1] ?? "staging";
   const config = licenseSmokeConfig(environment);
   const api = config.api;
+  inspectedOrigin = api;
   const options = { auth: { persistSession: false, autoRefreshToken: false } };
   const admin = createClient(config.supabaseUrl, config.serverKey, options);
   const client = createClient(config.supabaseUrl, config.publishableKey, options);
@@ -22,7 +30,7 @@ async function main() {
   let cleanupFailed = false;
   try {
     step = "temporary account creation";
-    const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { company_name: "License smoke test" } });
+    const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { company_name: "License smoke test", acceptance_test: true, terms_accepted: true, terms_version: currentTermsVersion({ LICENSE_ISSUER: config.issuer }) } });
     if (created.error || !created.data.user) throw new Error(`Test account creation failed (${created.error?.code ?? "unknown"})`);
     userId = created.data.user.id;
     console.log("Temporary confirmed test account created (no email sent)");
@@ -140,7 +148,8 @@ async function main() {
   if (cleanupFailed) throw new Error("License test cleanup failed");
 }
 
-main().catch((error: unknown) => {
+main().then(() => recordAcceptance(true)).catch((error: unknown) => {
+  recordAcceptance(false);
   // Deliberately omit raw SDK/network responses and assertion payloads.
   console.error(error instanceof assert.AssertionError ? `License acceptance failed: ${step}` : error instanceof Error ? error.message : "License test failed");
   process.exitCode = 1;

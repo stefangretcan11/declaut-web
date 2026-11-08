@@ -8,6 +8,7 @@ import { createWebhookHandler } from "../src/lib/billing/webhook";
 import { createStripeGateway } from "../src/lib/billing/stripe-adapter";
 import { invoiceSnapshot, subscriptionSnapshot, validPrice } from "../src/lib/billing/snapshots";
 import type { BillingProfile, BillingStore, CheckoutReservation, InvoiceSnapshot, StripeEvent, StripeGateway, SubscriptionSnapshot } from "../src/lib/billing/types";
+import production from "../docs/track-b-production-config.json";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/stripe/${name}.json`, import.meta.url), "utf8"));
 const active = fixture("subscription-active");
@@ -26,6 +27,7 @@ class MemoryStore implements BillingStore {
   processed = new Set<string>();
   reservation?: { price: string; value: CheckoutReservation };
   applied = 0;
+  fiscal = new Map<string, { number: string; url: string }>();
   async getProfile() { return { ...this.profile }; }
   async bindCustomer(_user: string, customer: string) { this.profile.stripe_customer_id ??= customer; return this.profile.stripe_customer_id; }
   async reserveCheckout(_user: string, price: string): Promise<CheckoutReservation> {
@@ -43,6 +45,9 @@ class MemoryStore implements BillingStore {
     this.subscriptions.set(subscription.id, subscription); if (invoice) this.invoices.set(invoice.id, invoice); this.applied++; return true;
   }
   async completeEvent(id: string) { this.processed.add(id); }
+  async fiscalIssued(id: string) { return this.fiscal.has(id); }
+  async fiscalIssueDate() { return "2026-11-08"; }
+  async completeFiscal(id: string, _user: string, number: string, url: string) { this.fiscal.set(id, { number, url }); return true; }
 }
 
 function gateway(overrides: Partial<StripeGateway> = {}): StripeGateway {
@@ -74,6 +79,58 @@ test("Billing stays disabled without configured test keys/prices and rejects liv
   assert.equal(billingReadiness(configured).webhookReady, true);
   assert.equal(billingReadiness({ ...configured, STRIPE_SECRET_KEY: "sk_live_fixture" }).checkoutReady, false);
   assert.equal(billingReadiness({ ...configured, STRIPE_PRICE_YEARLY: config.prices.semiannual }).checkoutReady, false);
+  assert.equal(billingReadiness({ ...configured, LICENSE_ISSUER: "declaut-production" }).checkoutReady, false);
+  assert.equal(billingReadiness({ ...configured, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl }).webhookReady, false);
+});
+
+test("Live checkout requires the production identity, Oblio acceptance and both release switches; cancellation and reconciliation remain available", () => {
+  const env = { STRIPE_SECRET_KEY: "sk_live_fixture", STRIPE_WEBHOOK_SECRET: "whsec_fixture", STRIPE_PRICE_SEMIANNUAL: "price_a", STRIPE_PRICE_YEARLY: "price_b", STRIPE_PORTAL_CONFIGURATION_ID: "bpc_fixture", SITE_URL: production.websiteUrl, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: production.supabasePublishableKey, SUPABASE_SERVICE_ROLE_KEY: "fixture", LICENSE_PRIVATE_KEY_BASE64: "fixture", LICENSE_KEY_ID: production.license.publicKey.kid, LICENSE_ISSUER: production.license.issuer, LICENSE_AUDIENCE: production.license.audience, COMPANY_LEGAL_NAME: "Operator", COMPANY_CUI: "26143268", COMPANY_ADDRESS: "Craiova", CONTACT_EMAIL: "owner@example.test", GITHUB_RELEASE_CHANNEL: "stable", OBLIO_CLIENT_ID: "owner@example.test", OBLIO_CLIENT_SECRET: "fixture", OBLIO_COMPANY_CIF: "26143268", OBLIO_INVOICE_SERIES: "F", OBLIO_VAT_PERCENT: "0", BILLING_LIVE_ENABLED: "true", FISCAL_LIVE_READY: "true" };
+  assert.equal(billingReadiness(env).checkoutReady, true);
+  assert.equal(readBillingConfig(env).mode, "live");
+  for (const override of [{ BILLING_LIVE_ENABLED: "false" }, { FISCAL_LIVE_READY: "false" }, { OBLIO_CLIENT_SECRET: "" }]) {
+    const changed = { ...env, ...override };
+    assert.equal(billingReadiness(changed).checkoutReady, false);
+    assert.equal(billingReadiness(changed).portalReady, true);
+    assert.equal(readBillingConfig(changed, true).mode, "live");
+    assert.equal(readBillingConfig(changed, false, true).mode, "live");
+  }
+  for (const override of [{ LICENSE_ISSUER: "declaut-staging" }, { OBLIO_COMPANY_CIF: "99999999" }, { SITE_URL: "https://wrong.example" }, { GITHUB_RELEASE_CHANNEL: "preview" }]) assert.equal(billingReadiness({ ...env, ...override }).checkoutReady, false);
+});
+
+test("Live checkout requires production terms acceptance but existing customers can still open the cancellation portal", async () => {
+  const store = new MemoryStore(); store.profile.stripe_customer_id = "cus_fixture";
+  const deps = { authenticate: async () => ({ id: userId, email: "fixture@example.invalid" }), config: () => ({ ...config, mode: "live" as const }), store: () => store, stripe: () => gateway() };
+  const checkout = await createBillingHandler("checkout", deps)(paymentRequest());
+  assert.equal(checkout.status, 403);
+  assert.equal((await checkout.json()).error.code, "terms_acceptance_required");
+  assert.equal((await createBillingHandler("portal", deps)(paymentRequest())).status, 200);
+});
+
+test("Live webhook fiscal failures remain retryable and a successful replay records one fiscal invoice", async () => {
+  const store = new MemoryStore(); let issuances = 0;
+  const event = { ...events.find((event) => event.type === "invoice.paid")!, livemode: true };
+  const handler = createWebhookHandler({ config: () => ({ ...config, mode: "live" }), store: () => store, stripe: () => gateway(), fiscal: async (invoice, profile) => {
+    assert.equal(invoice.fiscal_issue_date, "2026-11-08"); assert.equal(profile.id, userId);
+    if (++issuances === 1) throw new Error("temporary provider failure");
+    return { number: "F 1", url: "https://www.oblio.eu/utils/show_file/?id=fixture" };
+  } });
+  assert.equal((await handler(signedRequest(event))).status, 503);
+  assert.equal(store.processed.has(event.id), false);
+  assert.equal(store.invoices.size, 1);
+  assert.equal((await handler(signedRequest(event))).status, 200);
+  assert.equal((await handler(signedRequest(event))).status, 200);
+  assert.equal(issuances, 2);
+  assert.equal(store.fiscal.size, 1);
+  assert.equal(store.processed.has(event.id), true);
+});
+
+test("Test-mode Stripe events never issue real fiscal invoices and mode mismatches fail before database work", async () => {
+  let issuances = 0;
+  const event = events.find((event) => event.type === "invoice.paid")!;
+  const handler = createWebhookHandler({ config: () => config, store: () => new MemoryStore(), stripe: () => gateway(), fiscal: async () => { issuances++; throw new Error("must not emit"); } });
+  assert.equal((await handler(signedRequest(event))).status, 200);
+  assert.equal((await handler(signedRequest({ ...event, livemode: true }))).status, 400);
+  assert.equal(issuances, 0);
 });
 
 test("Only the exact published RON amounts and half-year/year periods are accepted", () => {

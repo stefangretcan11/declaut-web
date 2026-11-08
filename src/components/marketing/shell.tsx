@@ -26,7 +26,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
       <Link className="marketing-account-link" href="/account">Contul meu <span aria-hidden="true">↗</span></Link>
       <details className="marketing-mobile-navigation"><summary>Meniu <span aria-hidden="true">+</span></summary><nav data-motion-disclosure aria-label="Navigație mobilă"><Navigation current={current} /><Link href="/account">Contul meu</Link></nav></details>
     </header>
-    <aside className="marketing-prerelease-notice" aria-label="Stadiul lansării"><strong>Versiune preliminară (pre-release)</strong><span>Declaut este în testare, înainte de lansarea stabilă.</span></aside>
+    {site.isStaging && <aside className="marketing-prerelease-notice" aria-label="Stadiul lansării"><strong>Versiune preliminară (pre-release)</strong><span>Declaut este în testare, înainte de lansarea stabilă.</span></aside>}
     <div className="marketing-content" id="continut" tabIndex={-1}>{children}</div>
     <footer className="marketing-footer" data-motion-group>
       <div className="marketing-footer-top"><div><Link className="wordmark" href="/">declaut<span>.</span></Link><p>Un flux de lucru mai simplu.</p></div><nav aria-label="Informații utile"><Link href="/termeni-si-conditii">Termeni și condiții</Link><Link href="/politica-de-confidentialitate">Confidențialitate</Link><Link href="/contact">Contact</Link></nav></div>
@@ -41,5 +41,5 @@ export function PageHeading({ eyebrow, title, children }: { eyebrow: string; tit
 }
 
 export function AccountCallout() {
-  return <section className="marketing-account-callout" data-motion-group aria-labelledby="account-callout-title"><div><p className="eyebrow">URMĂTORUL PAS</p><h2 id="account-callout-title">Un cont. Același Declaut.</h2><p>Folosește aceleași date de conectare pe site și în aplicația desktop.</p></div><Link className="button button-primary" href="/signup">Creează un cont de test <span aria-hidden="true">↗</span></Link></section>;
+  return <section className="marketing-account-callout" data-motion-group aria-labelledby="account-callout-title"><div><p className="eyebrow">URMĂTORUL PAS</p><h2 id="account-callout-title">Un cont. Același Declaut.</h2><p>Folosește aceleași date de conectare pe site și în aplicația desktop.</p></div><Link className="button button-primary" href="/signup">{getSiteConfig().isStaging ? "Creează un cont de test" : "Creează un cont"} <span aria-hidden="true">↗</span></Link></section>;
 }

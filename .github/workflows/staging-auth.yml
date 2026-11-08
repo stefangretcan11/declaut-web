@@ -46,6 +46,8 @@ jobs:
           if (missing.length) throw new Error(`Missing staging environment secrets: ${missing.join(', ')}`);
           const publicConfig = JSON.parse(readFileSync('docs/track-b-public-config.json', 'utf8'));
           if (process.env.NEXT_PUBLIC_SUPABASE_URL !== publicConfig.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY !== publicConfig.supabasePublishableKey) throw new Error('Staging auth secrets do not match the distributed staging project configuration');
+          const productionConfig = JSON.parse(readFileSync('docs/track-b-production-config.json', 'utf8'));
+          if (process.env.NEXT_PUBLIC_SUPABASE_URL === productionConfig.supabaseUrl) throw new Error('This project is now production; provision an isolated staging project for browser fixtures');
           writeFileSync('.env.local', names.map((name) => `${name}=${JSON.stringify(process.env[name])}`).join('\n') + '\n', { mode: 0o600 });
           const privatePem = Buffer.from(process.env.LICENSE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
           const privateKey = createPrivateKey(privatePem);

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { getSiteConfig } from "@/lib/site-config";
+import { ProductionLegal } from "@/components/production-legal";
 
 export default function StagingPrivacy() {
+  if (!getSiteConfig().isStaging) return <ProductionLegal privacy />;
   return <main className="site-shell"><header className="site-header"><Link className="wordmark" href="/">declaut<span>.</span></Link><span className="environment-label">Mediu de testare</span></header>
     <article className="legal-content"><p className="eyebrow">TESTARE</p><h1>Date și confidențialitate</h1>
       <p>Această notă descrie funcționarea tehnică a mediului de testare. Politica de confidențialitate pentru lansarea comercială, cu datele operatorului și informațiile complete, va fi publicată separat.</p>

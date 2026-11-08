@@ -6,6 +6,8 @@ import { createLicenseSigner } from "../src/lib/license/sign";
 import { createLicenseHandler, LicenseError } from "../src/lib/license/http";
 import type { Entitlement } from "../src/lib/license/types";
 import { deviceEntitlement } from "../src/lib/license/entitlement";
+import { matchesEd25519Identity } from "../src/lib/license/key-identity";
+import { createPublicKey } from "node:crypto";
 
 const keys = generateKeyPairSync("ed25519", {
   privateKeyEncoding: { type: "pkcs8", format: "pem" },
@@ -14,6 +16,13 @@ const keys = generateKeyPairSync("ed25519", {
 const sign = createLicenseSigner({ privateKeyPem: keys.privateKey, keyId: "test-key", issuer: "declaut-staging", audience: "declaut-desktop" });
 const now = new Date("2026-10-24T12:00:00Z");
 const free: Entitlement = { plan: "free", pro_until: null };
+
+test("A production signing identity check rejects another private key and public-only key material", () => {
+  const expected = createPublicKey(keys.privateKey).export({ format: "jwk" }).x!;
+  assert.equal(matchesEd25519Identity(keys.privateKey, expected), true);
+  assert.equal(matchesEd25519Identity(keys.privateKey, "wrong-public-key"), false);
+  assert.equal(matchesEd25519Identity(keys.publicKey, expected), false);
+});
 
 test("Free license verifies with the public key and binds user, device, audience, issuer, expiry", async () => {
   const { token, expires_at } = await sign("user-1", "device-1", free, now);

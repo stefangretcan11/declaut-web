@@ -17,6 +17,8 @@ let confirmationHash: string;
 let foreignUserId: string | undefined;
 
 test.beforeAll(async () => {
+  const production = JSON.parse(readFileSync("docs/track-b-production-config.json", "utf8"));
+  if (process.env.LICENSE_ISSUER !== "declaut-staging" || url === production.supabaseUrl) throw new Error("Browser auth fixtures require an isolated staging project; the configured project is now production");
   // generateLink creates an unconfirmed signup and a real one-time token without
   // sending email. SMTP delivery is a separate acceptance check once configured.
   const result = await admin.auth.admin.generateLink({ type: "signup", email, password, options: { data: {

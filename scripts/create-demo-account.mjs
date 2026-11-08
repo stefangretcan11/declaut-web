@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 async function main() {
   if (process.env.LICENSE_ISSUER !== "declaut-staging") throw new Error("Demo accounts can be created only with staging configuration");
+  const production = JSON.parse(readFileSync("docs/track-b-production-config.json", "utf8"));
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL === production.supabaseUrl) throw new Error("This project is now production; demo accounts require a separate staging project");
   const path = resolve(".env.demo.local");
   if (existsSync(path)) throw new Error("Demo credentials already exist in .env.demo.local; reuse that account");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

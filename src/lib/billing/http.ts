@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requestOrigin, siteOrigin, trustedOrigin } from "../auth/validation";
+import { hasCurrentTerms, requestOrigin, siteOrigin, trustedOrigin } from "../auth/validation";
 import { BillingError, type BillingConfig } from "./config";
 import { validPrice } from "./snapshots";
 import type { BillingStore, BillingUser, StripeGateway } from "./types";
@@ -63,6 +63,7 @@ export function createBillingHandler(action: "checkout" | "portal", deps: Billin
         if (customer.deleted || (customer.metadata?.user_id && customer.metadata.user_id !== user.id)) throw new BillingError(409, "billing_customer_mismatch");
         url = stripeUrl((await stripe.createPortal(profile.stripe_customer_id, origin)).url, "billing.stripe.com");
       } else {
+        if (config.mode === "live" && !hasCurrentTerms(profile, { LICENSE_ISSUER: "declaut-production" })) throw new BillingError(403, "terms_acceptance_required");
         const parsed = checkoutSchema.safeParse(await input(request));
         if (!parsed.success) throw new BillingError(400, "invalid_request");
         const priceId = config.prices[parsed.data.interval];
@@ -74,7 +75,7 @@ export function createBillingHandler(action: "checkout" | "portal", deps: Billin
           try {
             let customerId = profile.stripe_customer_id;
             if (!customerId) {
-              const created = await stripe.createCustomer(profile, `declaut-customer:test:${user.id}`);
+              const created = await stripe.createCustomer(profile, `declaut-customer:${config.mode}:${user.id}`);
               customerId = await store.bindCustomer(user.id, created.id);
             }
             const customer = z.object({ id: z.string(), deleted: z.boolean().optional(), metadata: z.record(z.string(), z.string()).optional() }).parse(await stripe.customer(customerId));

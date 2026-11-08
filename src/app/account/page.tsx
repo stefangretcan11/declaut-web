@@ -8,9 +8,12 @@ import { DeviceList, type AccountDevice } from "@/components/account/device-list
 import { BillingActions } from "@/components/account/billing-actions";
 import { PaymentStatus } from "@/components/account/payment-status";
 import { FREE_MAX_FIRMS, MAX_ACTIVE_DEVICES } from "@/lib/license/plans";
+import { getSiteConfig } from "@/lib/site-config";
+import { hasCurrentTerms } from "@/lib/auth/validation";
 import "./account.css";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 type Invoice = {
   id: string;
@@ -36,12 +39,13 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user?.email_confirmed_at || data.user.is_anonymous) redirect("/login");
   const [profileResult, subscriptionResult, deviceResult, invoiceResult] = await Promise.all([
-    supabase.from("profiles").select("company_name,cui,stripe_customer_id").eq("id", data.user.id).maybeSingle(),
+    supabase.from("profiles").select("company_name,cui,stripe_customer_id,terms_version,terms_accepted_at").eq("id", data.user.id).maybeSingle(),
     supabase.from("subscriptions").select("id,status,price_id,current_period_start,current_period_end,cancel_at_period_end,is_pro").eq("user_id", data.user.id),
     supabase.from("devices").select("id,device_id,device_name,created_at,last_seen_at,is_active").eq("user_id", data.user.id).order("created_at").order("id"),
     supabase.from("billing_invoices").select("id,status,currency,amount_paid,stripe_invoice_number,stripe_hosted_invoice_url,fiscal_status,fiscal_number,fiscal_pdf_url,created_at").eq("user_id", data.user.id).order("created_at", { ascending: false }).limit(50),
   ]);
   const profile = profileResult.data;
+  const termsRequired = !getSiteConfig().isStaging && (!profile || !hasCurrentTerms(profile));
   const entitlement = accountEntitlement((subscriptionResult.data ?? []) as Subscription[]);
   const readiness = billingReadiness();
   const pro = entitlement.plan === "pro";
@@ -49,10 +53,11 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   return <main className="site-shell account-page">
     <header className="site-header"><Link className="wordmark" href="/" aria-label="Declaut, pagina principală">declaut<span>.</span></Link><nav className="site-nav" aria-label="Navigare cont"><Link href="/descarcare">Descarcă aplicația</Link><Link href="/contact">Ajutor</Link></nav></header>
     <div className="account-body">
-      <div className="account-heading"><div><p className="eyebrow">SPAȚIUL TĂU</p><h1>Contul tău.</h1><p className="description">Abonamentul și dispozitivele tale, într-un singur loc.</p></div><span className="environment-label">Mediu de testare</span></div>
+      <div className="account-heading"><div><p className="eyebrow">SPAȚIUL TĂU</p><h1>Contul tău.</h1><p className="description">Abonamentul și dispozitivele tale, într-un singur loc.</p></div>{getSiteConfig().isStaging && <span className="environment-label">Mediu de testare</span>}</div>
       {paid === "1" && !subscriptionResult.error && <PaymentStatus pro={pro} />}
       {billing_error && <p className="form-message error-message" role="alert">Gestionarea abonamentului nu este disponibilă momentan. Încearcă din nou mai târziu.</p>}
       {checkout === "cancelled" && <p className="form-message success-message" role="status">Ai revenit din pagina de plată. Poți relua procesul când dorești.</p>}
+      {termsRequired && <section className="account-panel"><h2>Condițiile contului de producție</h2><p>Pentru activarea aplicației și a unui abonament, citește și acceptă condițiile serviciului. Acordul din perioada de testare nu este folosit în locul acestuia.</p><AuthForm kind="accept-terms" production /></section>}
       <div className="account-top-grid">
         <section className="account-panel plan-panel" aria-labelledby="account-plan-title"><div className="panel-heading"><h2 id="account-plan-title">Abonament</h2><span className={`plan-badge ${pro ? "is-pro" : ""}`}>{subscriptionResult.error ? "Indisponibil" : pro ? "Pro" : "Free"}</span></div>
           {subscriptionResult.error ? <p className="form-message error-message" role="alert">Nu am putut încărca abonamentul. Reîncarcă pagina pentru a încerca din nou.</p> : <><p className="plan-name">Declaut {pro ? "Pro" : "Free"}</p><p className="account-muted">{pro ? "Acces Pro pe un singur dispozitiv activ." : `Acces Free pentru maximum ${FREE_MAX_FIRMS} firme în aplicația Declaut.`}</p>
@@ -61,7 +66,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
             {entitlement.grace && <p className="account-notice">Plata necesită atenție. Accesul Pro continuă cel mult 72 de ore de la începutul perioadei curente.</p>}
             {!pro && entitlement.subscription?.is_pro !== false && entitlement.subscription?.status === "past_due" && Date.parse(entitlement.subscription.current_period_start) + 72 * 3_600_000 <= Date.now() && <p className="account-notice">Perioada de grație a expirat. Planul este Free până la confirmarea unei plăți eligibile.</p>}
           </>}
-          <BillingActions portal={readiness.portalReady && Boolean(profile?.stripe_customer_id)} checkout={!subscriptionResult.error && !pro && readiness.checkoutReady} />
+          <BillingActions portal={readiness.portalReady && Boolean(profile?.stripe_customer_id)} checkout={!termsRequired && !subscriptionResult.error && !pro && readiness.checkoutReady} />
           <Link className="account-plan-link" href="/preturi">Vezi planurile și prețurile</Link>
         </section>
         <section className="account-panel" aria-labelledby="account-profile-title"><div className="panel-heading"><h2 id="account-profile-title">Datele contului</h2></div><dl className="account-details"><div><dt>Email</dt><dd>{data.user.email}</dd></div>{profile?.company_name && <div><dt>Companie</dt><dd>{profile.company_name}</dd></div>}{profile?.cui && <div><dt>CUI</dt><dd>{profile.cui}</dd></div>}</dl>{profileResult.error && <p className="account-muted">Datele companiei nu au putut fi încărcate.</p>}<Link className="account-password-link" href="/forgot-password">Schimbă parola</Link></section>

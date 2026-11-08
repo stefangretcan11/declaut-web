@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 process.loadEnvFile(".env.local");
+const productionTarget = JSON.parse(readFileSync("docs/track-b-production-config.json", "utf8"));
+if (process.env.NEXT_PUBLIC_SUPABASE_URL === productionTarget.supabaseUrl) throw new Error("This project is now production; use auth:production or an isolated staging project");
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const includeTemplates = !args.includes("--settings-only");

@@ -3,16 +3,17 @@
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 
-export type AuthKind = "signup" | "login" | "forgot-password" | "resend-confirmation" | "reset-password" | "confirm" | "logout";
+export type AuthKind = "signup" | "login" | "forgot-password" | "resend-confirmation" | "reset-password" | "confirm" | "logout" | "accept-terms";
 const labels: Record<AuthKind, string> = {
-  signup: "Creează contul", login: "Autentifică-te", "forgot-password": "Trimite linkul de resetare", "resend-confirmation": "Retrimite emailul", "reset-password": "Salvează parola", confirm: "Continuă", logout: "Deconectează-te",
+  signup: "Creează contul", login: "Autentifică-te", "forgot-password": "Trimite linkul de resetare", "resend-confirmation": "Retrimite emailul", "reset-password": "Salvează parola", confirm: "Continuă", logout: "Deconectează-te", "accept-terms": "Acceptă și continuă",
 };
 
-export function AuthForm({ kind, initialMessage, tokenHash, confirmationType }: {
+export function AuthForm({ kind, initialMessage, tokenHash, confirmationType, production = false }: {
   kind: AuthKind;
   initialMessage?: string;
   tokenHash?: string;
   confirmationType?: string;
+  production?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(initialMessage);
@@ -69,7 +70,7 @@ export function AuthForm({ kind, initialMessage, tokenHash, confirmationType }: 
       {kind !== "login" && <p className="field-hint" id="password-hint">Cel puțin 12 caractere.</p>}{fieldError("password")}
     </div>}
     {isReset && <div className="field"><label htmlFor="confirm_password">Repetă parola nouă</label><input id="confirm_password" type="password" name="confirm_password" autoComplete="new-password" required minLength={12} maxLength={128} aria-invalid={Boolean(fields.confirm_password)} aria-describedby={described("confirm_password")} />{fieldError("confirm_password")}</div>}
-    {isSignup && <div className="consent-field"><label className="checkbox-label" htmlFor="terms"><input id="terms" name="terms" type="checkbox" required aria-invalid={Boolean(fields.terms)} aria-describedby={described("terms")} /><span>Accept <Link href="/termeni-si-conditii" target="_blank" rel="noopener">termenii mediului de testare<span className="sr-only"> (se deschide într-o filă nouă)</span></Link> și am citit <Link href="/politica-de-confidentialitate" target="_blank" rel="noopener">nota de confidențialitate<span className="sr-only"> (se deschide într-o filă nouă)</span></Link>.</span></label>{fieldError("terms")}</div>}
+    {(isSignup || kind === "accept-terms") && <div className="consent-field"><label className="checkbox-label" htmlFor="terms"><input id="terms" name="terms" type="checkbox" required aria-invalid={Boolean(fields.terms)} aria-describedby={described("terms")} /><span>Accept <Link href="/termeni-si-conditii" target="_blank" rel="noopener">{production ? "termenii și condițiile" : "termenii mediului de testare"}<span className="sr-only"> (se deschide într-o filă nouă)</span></Link> și am citit <Link href="/politica-de-confidentialitate" target="_blank" rel="noopener">{production ? "politica de confidențialitate" : "nota de confidențialitate"}<span className="sr-only"> (se deschide într-o filă nouă)</span></Link>.</span></label>{fieldError("terms")}</div>}
     {kind === "confirm" && <><input type="hidden" name="token_hash" value={tokenHash ?? ""} /><input type="hidden" name="type" value={confirmationType ?? ""} /></>}
     <button className={kind === "logout" ? "button button-secondary" : "button button-primary"} disabled={pending} type="submit">{pending ? "Se procesează…" : labels[kind]}</button>
   </form>;
