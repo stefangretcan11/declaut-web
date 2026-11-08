@@ -1,0 +1,112 @@
+/* Shared timing, independent of the existing brand and layout styles. */
+:root {
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-ease-interaction: cubic-bezier(.2, .7, .3, 1);
+  --motion-fast: 200ms;
+  --motion-base: 220ms;
+}
+
+.button {
+  transition: translate var(--motion-base) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-ease-interaction),
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+.button > span[aria-hidden="true"],
+.marketing-text-link > span[aria-hidden="true"],
+.marketing-account-link > span[aria-hidden="true"],
+.marketing-context-note a > span[aria-hidden="true"] {
+  display: inline-block;
+  transition: translate var(--motion-base) var(--motion-ease);
+}
+.marketing-navigation a {
+  position: relative;
+  transition: color var(--motion-fast) ease;
+}
+.marketing-navigation a:not([aria-current="page"])::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 8px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+.marketing-update-card, .marketing-plan {
+  transition: translate var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+}
+.marketing-faq-list summary > span,
+.marketing-mobile-navigation summary > span {
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+.marketing-faq-list summary {
+  transition: color var(--motion-fast) ease;
+}
+.preview-progress > span { transform-origin: left center; }
+.preview-status { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .button:not(:disabled):not([aria-disabled="true"]):hover {
+    translate: 0 -2px;
+  }
+  .button-primary:not(:disabled):not([aria-disabled="true"]):hover { box-shadow: 0 6px 14px #18362e14; }
+  .button-secondary:not(:disabled):not([aria-disabled="true"]):hover { box-shadow: 0 3px 10px #18362e08; }
+  .button:hover > span[aria-hidden="true"],
+  .marketing-text-link:hover > span[aria-hidden="true"],
+  .marketing-account-link:hover > span[aria-hidden="true"],
+  .marketing-context-note a:hover > span[aria-hidden="true"] {
+    translate: 2px -1px;
+  }
+  .marketing-text-link[href^="#"]:hover > span[aria-hidden="true"],
+  .marketing-download-action .button:hover > span[aria-hidden="true"] {
+    translate: 0 3px;
+  }
+  .marketing-update-card:hover, .marketing-plan:hover { translate: 0 -3px; box-shadow: 0 8px 20px #18362e08; }
+  .marketing-navigation a:hover::after { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+
+  .button:not(:disabled):not([aria-disabled="true"]):active {
+    translate: 0 0;
+    scale: .98;
+    transition-duration: 160ms;
+  }
+  .marketing-update-card:focus-within, .marketing-plan:focus-within { translate: 0 -3px; }
+  .marketing-navigation a:focus-visible::after { transform: scaleX(1); }
+
+  /* Public entrances are enhanced by Motion after hydration. These existing
+     transactional headings keep their independent, lightweight CSS entrance. */
+  .auth-heading > *,
+  .account-heading > div > *,
+  .legal-content > h1 {
+    animation: declaut-rise 850ms var(--motion-ease) both;
+  }
+  .marketing-hero-copy [data-motion-line] { display: inline-block; }
+  .auth-heading > h1 { animation-delay: 70ms; }
+  .auth-heading > .description { animation-delay: 140ms; }
+
+  @keyframes declaut-rise {
+    from { opacity: 0; transform: translate3d(0, 24px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .button, .marketing-update-card, .marketing-plan { translate: none; scale: none; }
+}
+
+/* Print the complete document, even when a section hasn't entered the viewport. */
+@media print {
+  [data-motion-group] > *, [data-motion-reveal], [data-motion-scene],
+  [data-motion-scene] *, .marketing-hero-copy > *, [data-motion-line],
+  .marketing-hero-preview, [data-motion-heading] > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

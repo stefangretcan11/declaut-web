@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const publicPages = ["/", "/login", "/preturi", "/descarcare", "/intrebari-frecvente", "/contact"];
+const publicPages = ["/", "/login", "/noutati", "/preturi", "/descarcare", "/intrebari-frecvente", "/contact"];
 
 export function deploymentOrigin(value, { allowLocal = false } = {}) {
   if (!value) throw new Error("Provide --url=https://YOUR-DEPLOYMENT.vercel.app or DEPLOYMENT_URL");

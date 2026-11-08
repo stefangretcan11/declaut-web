@@ -89,6 +89,8 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   const key = await importSPKI(readFileSync(".keys/staging/public.pem", "utf8"), "EdDSA");
   const verified = await jwtVerify(body.token, key, { algorithms: ["EdDSA"], issuer: process.env.LICENSE_ISSUER, audience: process.env.LICENSE_AUDIENCE });
   expect(verified.payload.plan).toBe("free");
+  expect(verified.payload.max_firms).toBe(3);
+  expect(body).not.toHaveProperty("device_limit_reached");
 
   const accountSubscriptionId = `sub_account_${randomUUID()}`;
   const fixtureSubscription = await admin.from("subscriptions").insert({ id: accountSubscriptionId, user_id: userId, status: "active", price_id: "price_manual_account_fixture", current_period_start: new Date(Date.now() - 3600000).toISOString(), current_period_end: new Date(Date.now() + 180 * 86400000).toISOString(), cancel_at_period_end: false, is_pro: true });
@@ -96,6 +98,12 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   for (const [device_id, device_name] of [["account-second", "Al doilea PC"], ["account-third", "Al treilea PC"]]) {
     const response = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id, device_name } });
     expect(response.status()).toBe(200);
+    const proBody = await response.json();
+    expect(proBody.plan).toBe("pro");
+    expect(proBody).not.toHaveProperty("device_limit_reached");
+    const { payload } = await jwtVerify(proBody.token, key, { algorithms: ["EdDSA"], issuer: process.env.LICENSE_ISSUER, audience: process.env.LICENSE_AUDIENCE });
+    expect(payload.plan).toBe("pro");
+    expect(payload.device_id).toBe(device_id);
   }
   const invoiceFixture = await admin.from("billing_invoices").insert({ id: `in_account_${randomUUID()}`, user_id: userId, subscription_id: accountSubscriptionId, status: "paid", currency: "ron", amount_paid: 50000, stripe_invoice_number: "STRIPE-TEST-001", stripe_hosted_invoice_url: "https://invoice.stripe.com/i/fixture", created_at: new Date().toISOString(), fiscal_status: "pending" });
   if (invoiceFixture.error) throw new Error("Could not create the temporary payment-document fixture");
@@ -103,7 +111,7 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   await expect(page.locator(".plan-name")).toHaveText("Declaut Pro");
   await expect(page.locator(".plan-period dd")).not.toHaveText("—");
   await expect(page.locator(".device-rows > li")).toHaveCount(3);
-  await expect(page.locator(".device-rows .is-pro")).toHaveCount(2);
+  await expect(page.locator(".device-rows .is-pro")).toHaveCount(3);
   await expect(page.getByText("STRIPE-TEST-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Factura fiscală: în așteptare", { exact: true })).toBeVisible();
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -134,8 +142,8 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   await page.getByRole("button", { name: "Elimină Auth browser test", exact: true }).click();
   await page.getByRole("button", { name: "Confirmă eliminarea", exact: true }).click();
   await expect(page.locator(".device-rows > li")).toHaveCount(2);
-  const promoted = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id: "account-third", device_name: "Al treilea PC" } });
-  expect((await promoted.json()).plan).toBe("pro");
+  const refreshed = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id: "account-third", device_name: "Al treilea PC" } });
+  expect((await refreshed.json()).plan).toBe("pro");
 
   await page.getByRole("button", { name: "Deconectează-te", exact: true }).click();
   await expect(page).toHaveURL(/\/login\?status=signed_out$/);

@@ -48,7 +48,6 @@ curl --fail-with-body "$API_URL/api/license" \
   "token": "<compact-signed-JWT>",
   "plan": "pro",
   "expires_at": "2026-10-25T12:00:00.000Z",
-  "device_limit_reached": false,
   "latest_version": "1.2.3",
   "download_url": "https://github.com/OWNER/REPO/releases/download/v1.2.3/Declaut-Setup.exe"
 }
@@ -75,6 +74,7 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
 
 - Verify the signature, pin `EdDSA`, resolve the trusted public key by `kid`, check `iss`, `aud`, `exp`, `v`, and match `sub` and `device_id` to the signed-in user and local installation.
 - Enforce the plan from the verified JWT. Other JSON fields are convenience metadata, not offline proof of entitlement.
+- Free tokens include `max_firms: 3`, matching the desktop Free cap. Pro tokens retain their existing claims and do not inherit this Free cap.
 - Default maximum token lifetime is 24 hours. Pro tokens expire earlier at the known subscription end or payment-grace deadline.
 - Suggested desktop refresh: on sign-in/startup, every six hours while online, and after billing/device changes. Supabase access tokens may expire sooner; refresh those separately.
 - Offline: honor a valid license until `exp`; after expiry, keep Free functionality and require an online refresh for Pro.
@@ -85,11 +85,13 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
 
 `active` and `trialing` qualify for Pro while the current period has not ended. `past_due` qualifies only before `current_period_start + 72 hours` and before `current_period_end`. All other statuses qualify for Free. `cancel_at_period_end=true` preserves Pro until the current period ends. The server ignores future periods until they start. When multiple eligible subscriptions exist, use the latest entitlement deadline.
 
-The first two registered devices, ordered by `created_at` then internal `id`, receive Pro. This includes devices registered while the account was Free. Device registration, plan resolution and allocation run in one transaction, locked per profile. Updating `last_seen_at` does not change slot priority. A third device receives a signed Free token with `device_limit_reached=true`; a Free account has this flag set to false. Slots do not expire from inactivity. Removing a device promotes the next registered device on its next refresh.
+Free is limited to three firms. The website does not introduce a new firm limit for Pro.
 
-An issued JWT remains usable until expiry. Device removal or an immediate subscription change does not revoke an offline token. Removing and registering devices can therefore temporarily leave more than two unexpired Pro tokens; strict real-time revocation would require a different online-validation contract.
+There is no per-account device cap. Every device receives the account's subscription entitlement, including devices registered while the account was Free. Device registration and plan resolution run in one transaction, locked per profile. Each signed token still binds `device_id` to the installation that requested it. The HTTP response no longer includes `device_limit_reached`.
 
-Account-page removal releases a registration slot; it is not a permanent installation ban. A removed installation can register again when it next calls `/api/license`. The desktop should refresh after online account changes while keeping the documented expiration boundary for offline operation.
+Apply `20261026000000_remove_device_limit.sql` before deploying the updated website. The migration keeps the legacy database RPC's `device_limit_reached` column permanently false for compatibility with older server deployments; it no longer performs slot allocation. Subscription status, payment grace and owner-only access rules are preserved.
+
+An issued JWT remains usable until expiry. Device removal or an immediate subscription change does not revoke an offline token. Account-page removal deletes the device registration; it is not a permanent installation ban. A removed installation can register again when it next calls `/api/license` and receives the account's plan. The desktop should refresh after online account changes while keeping the documented expiration boundary for offline operation.
 
 ## Release metadata
 
