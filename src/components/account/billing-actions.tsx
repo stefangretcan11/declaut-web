@@ -25,6 +25,8 @@ export function BillingActions({ portal, checkout }: { portal: boolean; checkout
   }
   return <div className="billing-actions">
     {error && <p ref={errorRef} tabIndex={-1} role="alert" className="form-message error-message">{error}</p>}
-    {portal ? <button className="button button-primary" type="button" disabled={Boolean(pending)} onClick={() => open("portal")}>{pending ? "Se deschide…" : "Gestionează abonamentul"}</button> : checkout ? <div className="checkout-choices"><button className="button button-primary" type="button" disabled={Boolean(pending)} onClick={() => open("checkout", "semiannual")}>Pro · 300 RON / 6 luni</button><button className="button button-secondary" type="button" disabled={Boolean(pending)} onClick={() => open("checkout", "yearly")}>Pro · 500 RON / an</button></div> : <p className="account-muted">Plățile și gestionarea abonamentelor vor fi disponibile în curând.</p>}
+    {portal && <button className="button button-primary" type="button" disabled={Boolean(pending)} onClick={() => open("portal")}>{pending ? "Se deschide…" : "Gestionează abonamentul"}</button>}
+    {checkout && <><p className="account-muted">La prima activare Pro ai o lună gratuită (30 de zile), cu cardul introdus de la început. După perioada gratuită se debitează automat abonamentul ales. Oferta se acordă o singură dată pe cont; poți anula înainte de finalul ei pentru a evita plata.</p><div className="checkout-choices"><button className="button button-primary" type="button" disabled={Boolean(pending)} onClick={() => open("checkout", "semiannual")}>Pro · 300 RON / 6 luni</button><button className="button button-secondary" type="button" disabled={Boolean(pending)} onClick={() => open("checkout", "yearly")}>Pro · 500 RON / 12 luni</button></div></>}
+    {!portal && !checkout && <p className="account-muted">Plățile și gestionarea abonamentelor vor fi disponibile în curând.</p>}
   </div>;
 }

@@ -5,6 +5,7 @@ import { importSPKI, jwtVerify } from "jose";
 import { createLicenseSigner } from "../src/lib/license/sign";
 import { createLicenseHandler, LicenseError } from "../src/lib/license/http";
 import type { Entitlement } from "../src/lib/license/types";
+import { deviceEntitlement } from "../src/lib/license/entitlement";
 
 const keys = generateKeyPairSync("ed25519", {
   privateKeyEncoding: { type: "pkcs8", format: "pem" },
@@ -87,14 +88,33 @@ test("HTTP handler uses the verified identity and omits the removed device-limit
   assert.equal(payload.plan, "free"); assert.equal(payload.sub, "verified-user");
 });
 
-test("HTTP handler issues device-bound Pro tokens on every registered PC", async () => {
+test("A second device receives 409 without issuing a Free or Pro license", async () => {
+  for (const plan of ["free", "pro", "blocked"] as const) {
+    let signatures = 0;
+    const handler = createLicenseHandler({
+      authenticate: async () => ({ id: "verified-user" }),
+      resolve: async () => deviceEntitlement([{ plan, pro_until: null, device_limit_reached: true }]),
+      sign: async () => { signatures++; throw new Error("No license should be signed"); },
+      release: async () => ({ latest_version: null, download_url: null }),
+    });
+    const response = await handler(request());
+    assert.equal(response.status, 409);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: { code: "device_limit_reached" } });
+    assert.equal(signatures, 0);
+  }
+  assert.throws(() => deviceEntitlement([{ plan: "free", pro_until: null }]), LicenseError);
+  assert.throws(() => deviceEntitlement([{ plan: "blocked", pro_until: null, device_limit_reached: false }]), LicenseError);
+});
+
+test("HTTP handler renews the active PC's device-bound Pro license", async () => {
   const handler = createLicenseHandler({
     authenticate: async () => ({ id: "verified-user" }),
     resolve: async () => ({ plan: "pro", pro_until: "2026-11-24T12:00:00Z" }),
     sign: (user, device, entitlement) => sign(user, device, entitlement, now),
     release: async () => ({ latest_version: null, download_url: null }),
   });
-  for (const device of ["first", "second", "third", "fourth"]) {
+  for (const device of ["active-pc", "active-pc"]) {
     const response = await handler(request({ device_id: device, device_name: "Office PC" }));
     assert.equal(response.status, 200);
     const result = await response.json();

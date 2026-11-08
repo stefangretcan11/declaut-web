@@ -95,23 +95,21 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   const accountSubscriptionId = `sub_account_${randomUUID()}`;
   const fixtureSubscription = await admin.from("subscriptions").insert({ id: accountSubscriptionId, user_id: userId, status: "active", price_id: "price_manual_account_fixture", current_period_start: new Date(Date.now() - 3600000).toISOString(), current_period_end: new Date(Date.now() + 180 * 86400000).toISOString(), cancel_at_period_end: false, is_pro: true });
   if (fixtureSubscription.error) throw new Error("Could not create the temporary account-plan fixture");
-  for (const [device_id, device_name] of [["account-second", "Al doilea PC"], ["account-third", "Al treilea PC"]]) {
-    const response = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id, device_name } });
-    expect(response.status()).toBe(200);
-    const proBody = await response.json();
-    expect(proBody.plan).toBe("pro");
-    expect(proBody).not.toHaveProperty("device_limit_reached");
-    const { payload } = await jwtVerify(proBody.token, key, { algorithms: ["EdDSA"], issuer: process.env.LICENSE_ISSUER, audience: process.env.LICENSE_AUDIENCE });
-    expect(payload.plan).toBe("pro");
-    expect(payload.device_id).toBe(device_id);
+  const activePro = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id: "auth-browser-desktop", device_name: "Auth browser test" } });
+  expect(activePro.status()).toBe(200);
+  expect((await activePro.json()).plan).toBe("pro");
+  for (const device_id of ["account-second", "account-third"]) {
+    const response = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id, device_name: "Alt calculator" } });
+    expect(response.status()).toBe(409);
+    expect(await response.json()).toEqual({ error: { code: "device_limit_reached" } });
   }
   const invoiceFixture = await admin.from("billing_invoices").insert({ id: `in_account_${randomUUID()}`, user_id: userId, subscription_id: accountSubscriptionId, status: "paid", currency: "ron", amount_paid: 50000, stripe_invoice_number: "STRIPE-TEST-001", stripe_hosted_invoice_url: "https://invoice.stripe.com/i/fixture", created_at: new Date().toISOString(), fiscal_status: "pending" });
   if (invoiceFixture.error) throw new Error("Could not create the temporary payment-document fixture");
   await page.reload();
   await expect(page.locator(".plan-name")).toHaveText("Declaut Pro");
   await expect(page.locator(".plan-period dd")).not.toHaveText("—");
-  await expect(page.locator(".device-rows > li")).toHaveCount(3);
-  await expect(page.locator(".device-rows .is-pro")).toHaveCount(3);
+  await expect(page.locator(".device-rows > li")).toHaveCount(1);
+  await expect(page.locator(".device-rows .is-pro")).toHaveCount(1);
   await expect(page.getByText("STRIPE-TEST-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Factura fiscală: în așteptare", { exact: true })).toBeVisible();
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -138,12 +136,15 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   expect((await admin.from("devices").select("id").eq("id", otherDevice.data.id)).data?.length).toBe(1);
   await page.getByRole("button", { name: "Elimină Auth browser test", exact: true }).click();
   await page.getByRole("button", { name: "Păstrează", exact: true }).click();
-  await expect(page.locator(".device-rows > li")).toHaveCount(3);
+  await expect(page.locator(".device-rows > li")).toHaveCount(1);
   await page.getByRole("button", { name: "Elimină Auth browser test", exact: true }).click();
   await page.getByRole("button", { name: "Confirmă eliminarea", exact: true }).click();
-  await expect(page.locator(".device-rows > li")).toHaveCount(2);
+  await expect(page.locator(".device-rows > li")).toHaveCount(0);
   const refreshed = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id: "account-third", device_name: "Al treilea PC" } });
+  expect(refreshed.status()).toBe(200);
   expect((await refreshed.json()).plan).toBe("pro");
+  const oldDevice = await request.post("/api/license", { headers: { Authorization: `Bearer ${signedIn.data.session.access_token}` }, data: { device_id: "auth-browser-desktop", device_name: "Auth browser test" } });
+  expect(oldDevice.status()).toBe(409);
 
   await page.getByRole("button", { name: "Deconectează-te", exact: true }).click();
   await expect(page).toHaveURL(/\/login\?status=signed_out$/);

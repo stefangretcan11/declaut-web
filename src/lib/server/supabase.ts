@@ -2,7 +2,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabaseEnv } from "./env";
 import { LicenseError } from "../license/http";
-import { z } from "zod";
+import { deviceEntitlement } from "../license/entitlement";
 
 let auth: SupabaseClient | undefined;
 let admin: SupabaseClient | undefined;
@@ -26,11 +26,6 @@ export async function authenticate(accessToken: string) {
   return { id: data.user.id };
 }
 
-const entitlementSchema = z.object({
-  plan: z.enum(["free", "pro"]),
-  pro_until: z.string().nullable(),
-});
-
 export async function resolveEntitlement(userId: string, deviceId: string, deviceName: string) {
   const { data, error } = await clients().admin.rpc("resolve_device_license", {
     p_user_id: userId,
@@ -38,7 +33,5 @@ export async function resolveEntitlement(userId: string, deviceId: string, devic
     p_device_name: deviceName,
   });
   if (error) throw new LicenseError(503, "database_unavailable");
-  const result = z.array(entitlementSchema).length(1).safeParse(data);
-  if (!result.success) throw new LicenseError(503, "database_unavailable");
-  return result.data[0];
+  return deviceEntitlement(data);
 }

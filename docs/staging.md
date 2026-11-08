@@ -1,5 +1,9 @@
 # Staging setup and Track B handoff
 
+## Current acceptance — 2026-11-08
+
+The stable `https://declaut-web.vercel.app` origin passed public-page and unauthenticated license-boundary checks. Read-only Supabase auth/schema checks and signed Free licensing with `max_firms: 3` passed. Authenticated acceptance failed at the database policy for the third Pro device, after the first two received Pro. That result predates the one-device policy requested later on 8 November. Apply all migrations through `20261108000000_one_device_per_account.sql` and `20261108010000_zero_amount_invoices.sql`, deploy the updated API and rerun acceptance for one active device on both plans. Temporary test accounts and fixtures were removed; no hosted migrations or deployments were changed. See [the production release handoff](production-desktop-release.md) for the separate installer blockers.
+
 ## Verified hosted deployment
 
 On 2026-10-24, `https://declaut-f7vs3twun-declaut.vercel.app` passed `npm run test:staging` against the configured staging Supabase project. The homepage returned HTTP 200; an unauthenticated license request returned HTTP 401 with the application's `unauthorized` code.
@@ -8,11 +12,11 @@ The authenticated test verified Free and Pro JWT signatures with the local stagi
 
 This URL identifies a specific deployment. Choose a stable staging domain pointing to a verified deployment before the Track B handoff; test that domain with the same command below.
 
-The 2026-10-26 source update removes the device cap and sets Free to three firms. The historical hosted checks above describe the previous policy. Apply `20261026000000_remove_device_limit.sql`, deploy the updated app, then rerun the smoke test before claiming the new policy is active on a hosted environment.
+The 2026-10-26 source update removes the device cap and sets Free to three firms. This was superseded on 8 November by one active device on both plans. Keep that migration in history, then apply the newer single-device and zero-amount-invoice migrations and deploy the current app.
 
 ## Record the manually applied migration
 
-The original four migrations (schema, signup consent, billing storage, device removal) are applied and recorded remotely. The new `20261026000000_remove_device_limit.sql` must also be applied before deploying this update. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
+The original four migrations (schema, signup consent, billing storage, device removal) are applied and recorded remotely. All later migrations must also be applied, including `20261026000000_remove_device_limit.sql`, `20261108000000_one_device_per_account.sql` and `20261108010000_zero_amount_invoices.sql`, before deploying this update. The commands below document the original SQL Editor bootstrap; do not repeat them for a fresh project before applying its migrations.
 
 The initial SQL migration was applied in the Supabase SQL Editor and verified against the staging API. SQL Editor execution does not add it to the CLI migration history. Before pushing this migration to a GitHub branch with automatic Supabase deployment, record version `20261024000000` as applied so it will not try to create the tables again.
 
@@ -75,7 +79,7 @@ Run the existing staging smoke test against the deployed application:
 LICENSE_API_URL=https://YOUR-STAGING-APP.vercel.app npm run test:staging
 ```
 
-It uses the credentials in the local `.env.local`, creates temporary test fixtures, verifies JWT signatures against `.keys/staging/public.pem`, and cleans up. It proves the signed three-firm Free cap, device-bound Pro issuance on four devices without a device cap, the 72-hour payment grace period, invalid-token rejection and server-only subscription writes. It bypasses email delivery by creating a confirmed test user through the admin API; custom SMTP and real signup confirmation still need separate setup and validation.
+It uses the credentials in the local `.env.local`, creates temporary test fixtures, verifies JWT signatures against the pinned staging public JWK, and cleans up. It proves the signed three-firm Free cap, one active device on both plans, second-PC rejection with HTTP 409, device transfer and trial-bound Pro licensing, the 72-hour payment grace period, invalid-token rejection and server-only subscription writes. It bypasses email delivery by creating a confirmed test user through the admin API; custom SMTP and real signup confirmation still need separate setup and validation.
 
 ## Supabase auth settings
 

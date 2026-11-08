@@ -79,7 +79,10 @@ export function createBillingHandler(action: "checkout" | "portal", deps: Billin
             }
             const customer = z.object({ id: z.string(), deleted: z.boolean().optional(), metadata: z.record(z.string(), z.string()).optional() }).parse(await stripe.customer(customerId));
             if (customer.deleted || (customer.metadata?.user_id && customer.metadata.user_id !== user.id)) throw new BillingError(409, "billing_customer_mismatch");
-            const session = await stripe.createCheckout(customerId, user.id, priceId, origin, `declaut-checkout:${reservation.token}`);
+            // Check Stripe's authoritative history, including canceled trials,
+            // so a delayed webhook or reinstall cannot grant another trial.
+            const trial = !await stripe.hasSubscriptionHistory(customerId);
+            const session = await stripe.createCheckout(customerId, user.id, priceId, origin, `declaut-checkout:${reservation.token}`, trial);
             url = stripeUrl(session.url, "checkout.stripe.com");
             if (!await store.finishCheckout(user.id, reservation.token, session.id, url, session.expires_at)) throw new BillingError(503, "checkout_in_progress");
           } catch (error) {

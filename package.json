@@ -13,6 +13,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:database": "tsx --test tests/database/*.test.ts",
     "test:staging": "node --env-file=.env.local --import tsx scripts/smoke-license.ts",
+    "test:production": "node --env-file=.env.declaut-production.local --import tsx scripts/smoke-license.ts --environment=production",
     "test:auth": "playwright test",
     "keys:export": "node scripts/export-public-keys.mjs",
     "auth:configure": "node scripts/configure-auth.mjs",

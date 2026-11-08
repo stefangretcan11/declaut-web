@@ -39,7 +39,7 @@ These are verified source changes, not a claim that a particular downloadable in
 
 The pricing CTA takes visitors to their account, where actual billing readiness is determined. Prices on the marketing page do not enable payments. The configured Stripe prices must match the approved RON amounts and six-month/yearly intervals before checkout is enabled.
 
-Free permits up to three firms. Pro has no per-account device cap, and each license remains bound to its requesting PC. Pricing, FAQ and account copy reflect this policy; apply `20261026000000_remove_device_limit.sql` before deploying it. This update does not change Pro's firm-limit claims.
+Free permits up to three firms. Both Free and Pro allow one active device per account, and each license remains bound to its requesting PC. Pro includes one 30-day free trial per account with a card required upfront, then 300 RON / six months or 500 RON / twelve months. Pricing, FAQ and account copy reflect this policy; apply all migrations through the single-device and zero-amount-invoice migrations before deploying it. This update does not change Pro's firm-limit claims.
 
 ## Content still required before launch
 

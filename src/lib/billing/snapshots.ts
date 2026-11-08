@@ -19,6 +19,8 @@ const subscriptionSchema = z.object({
   id: z.string().regex(/^sub_/), customer: reference,
   status: z.enum(["active", "trialing", "past_due", "canceled", "unpaid", "incomplete", "incomplete_expired", "paused"]),
   cancel_at_period_end: z.boolean(),
+  trial_start: z.number().int().nonnegative().nullable().optional(),
+  trial_end: z.number().int().nonnegative().nullable().optional(),
   items: z.object({ data: z.array(z.object({
     current_period_start: z.number().int().nonnegative().optional(),
     current_period_end: z.number().int().nonnegative().optional(),
@@ -31,10 +33,13 @@ export function subscriptionSnapshot(value: unknown, config: BillingConfig): Sub
   const item = subscription.items.data[0];
   const priceId = stripeId(item?.price) ?? "unconfigured";
   const interval = (Object.entries(config.prices) as [BillingInterval, string][]).find(([, id]) => id === priceId)?.[0];
-  const start = item?.current_period_start ?? 0;
-  const end = item?.current_period_end ?? start + 1;
+  const trial = subscription.status === "trialing";
+  const periodStart = trial ? subscription.trial_start : item?.current_period_start;
+  const periodEnd = trial ? subscription.trial_end : item?.current_period_end;
+  const start = periodStart ?? 0;
+  const end = periodEnd ?? start + 1;
   // Unexpected/mixed plans keep their actual billing status but never grant Pro.
-  const isPro = subscription.items.data.length === 1 && item?.current_period_start !== undefined && item?.current_period_end !== undefined
+  const isPro = subscription.items.data.length === 1 && periodStart != null && periodEnd != null
     && Boolean(interval && validPrice(item.price, interval, false)) && end > start;
   return {
     id: subscription.id,

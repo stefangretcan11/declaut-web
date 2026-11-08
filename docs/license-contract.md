@@ -90,15 +90,17 @@ Header: `{"alg":"EdDSA","typ":"JWT","kid":"<environment-key-id>"}`. Keys use Ed2
 | Rule | Limit |
 | --- | --- |
 | Firms on Free | 3 |
-| Devices per account, Free and Pro | No limit |
+| Active devices per account, Free and Pro | 1 |
 
-The website does not introduce a new firm limit for Pro.
+The website does not introduce a new firm limit for Pro. The first installation to request a license occupies the account's single active device slot, whether the account is Free, in its Pro trial or paying for Pro. Repeated requests from that installation renew its license. A second installation receives HTTP **409** with `{"error":{"code":"device_limit_reached"}}`; it receives no token and must not be treated as an ordinary Free license response.
 
-There is no per-account device cap. Every device receives the account's subscription entitlement, including devices registered while the account was Free. Device registration and plan resolution run in one transaction, locked per profile. Each signed token still binds `device_id` to the installation that requested it. The HTTP response no longer includes `device_limit_reached`.
+Apply all migrations through `20261108000000_one_device_per_account.sql` before deploying the updated website. Earlier migrations remain in history. The new migration preserves existing registrations and marks only the oldest one (ordered by `created_at`, then row ID) active. Other legacy registrations remain visible as inactive. A partial unique index and the per-profile transaction lock enforce one active registration even during simultaneous requests. The RPC retains its `device_limit_reached` boolean and returns internal `plan=blocked` for a refused installation. The current server converts that result to HTTP 409 before signing. Older server versions reject the unknown plan and issue no fallback Free token during the migration/deployment window. Successful HTTP responses omit that flag.
 
-Apply `20261026000000_remove_device_limit.sql` before deploying the updated website. The migration keeps the legacy database RPC's `device_limit_reached` column permanently false for compatibility with older server deployments; it no longer performs slot allocation. Subscription status, payment grace and owner-only access rules are preserved.
+To switch PCs, remove the active device from `/account`, then request a license on the new PC. Removal and registration share the per-profile lock. Inactive legacy devices are not automatically promoted after removal; the next successful request claims the free slot. A removed PC can register again only while the slot is free. Subscription status, payment grace and owner-only row access are unchanged.
 
-An issued JWT remains usable until expiry. Device removal or an immediate subscription change does not revoke an offline token. Account-page removal deletes the device registration; it is not a permanent installation ban. A removed installation can register again when it next calls `/api/license` and receives the account's plan. The desktop should refresh after online account changes while keeping the documented expiration boundary for offline operation.
+Previously issued JWTs remain usable until expiry, at most 24 hours. Removing a device does not instantly revoke an offline token. Desktop integration must handle the new 409 as blocked activation, direct the user to account device management and stop using a license for online activation once the server reports the conflict. This repository cannot enforce that desktop behavior by itself.
+
+Pro's first activation includes a one-time **30-day free trial**, with a card collected at Checkout. After the trial, the selected recurring period starts: 300 RON / six months or 500 RON / twelve months. During `trialing`, the signed Pro deadline is the verified Stripe `trial_end`; it must not use a later paid billing-period end. Returning customers with any previous Stripe subscription, including a canceled trial, do not receive another trial.
 
 ## Release metadata
 
@@ -116,6 +118,7 @@ Successful results are cached for one hour with Next.js fetch caching and an ins
 | --- | --- | --- |
 | 400 | `invalid_request` | Correct the request; do not retry unchanged. |
 | 401 | `unauthorized` | Refresh the Supabase session or ask the user to sign in. |
+| 409 | `device_limit_reached` | Block activation; remove the active PC from the account before switching. |
 | 403 | `email_confirmation_required` | Ask the user to confirm their email. |
 | 413 | `request_too_large` | Send a smaller request. |
 | 415 | `unsupported_media_type` | Send JSON with `Content-Type: application/json`. |

@@ -1,4 +1,5 @@
 export type BillingInterval = "semiannual" | "yearly";
+export const PRO_TRIAL_DAYS = 30;
 export class BillingError extends Error {
   constructor(public readonly status: number, public readonly code: string) { super(code); }
 }
