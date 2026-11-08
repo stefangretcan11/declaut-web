@@ -1,5 +1,7 @@
 # Track B staging handoff
 
+For the installer release, use [the production desktop release handoff](production-desktop-release.md) and its separate public configuration. Staging values must not be compiled into the desktop production block.
+
 This handoff describes **license-v1-proposed**. The backend implements it; Track B still needs to agree to the request/response fields, claims, refresh schedule and offline/device-removal behavior before shipping the desktop integration.
 
 ## Public configuration to consume
@@ -66,7 +68,7 @@ curl --fail-with-body "$API_URL/api/license" \
   --data '{"device_id":"desktop-test-1","device_name":"Contabilitate PC"}'
 ```
 
-Success is HTTP 200 with `token`, `plan`, `expires_at`, `latest_version` and `download_url`. The removed `device_limit_reached` flag is no longer returned. Both release fields remain nullable during outages or when a channel has no eligible release; do not treat null release metadata as an invalid license.
+Success is HTTP 200 with `token`, `plan`, `expires_at`, `latest_version` and `download_url`. Successful responses omit the `device_limit_reached` flag. A second active installation receives HTTP 409 with the `device_limit_reached` error code and no token; see the contract for required desktop handling. Both release fields remain nullable during outages or when a channel has no eligible release; do not treat null release metadata as an invalid license.
 
 Track B supplied [v0.9.0-rc1](https://github.com/mihaicostache1/declaut-release/releases/tag/v0.9.0-rc1), with the public asset `declaut-setup.exe`. GitHub marks it as a prerelease; no stable release was present when checked on 2026-10-24. The local staging configuration opts into the preview feed and resolves `latest_version=0.9.0-rc1` with that installer URL. Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release`, `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe` and `GITHUB_RELEASE_CHANNEL=preview` on the staging Vercel project, then redeploy. The older hosted reference is not automatically updated by local configuration changes. Production keeps `GITHUB_RELEASE_CHANNEL=stable` and never opts into prereleases.
 
@@ -82,6 +84,8 @@ The complete validation rules, response example and error table are in [license-
 
 Tokens last no more than 24 hours. Pro expires sooner when the known subscription period or past-due grace deadline is earlier. Refresh at startup/sign-in, approximately every six hours while online, and after account/device changes. Supabase access-token refresh remains separate.
 
+Pro JWTs include a signed `pro_until` claim as an ISO 8601 UTC string, representing the subscription period end or earlier payment-grace deadline. Use it for “Pro până la …” in the Cont panel. It can be later than `exp`; token validity still ends at `exp`. Free tokens omit `pro_until`. If an older Pro token lacks it, omit the date until the next refresh.
+
 Offline, keep using an unexpired verified license. After expiry, retain Free functionality and ask for an online refresh before restoring Pro. During a temporary HTTP 503, honor `Retry-After` with backoff and preserve any unexpired license.
 
 ## Subscription and device behavior
@@ -90,23 +94,24 @@ Offline, keep using an unexpired verified license. After expiry, retain Free fun
 - `past_due` qualifies only before both `current_period_start + 72 hours` and the current period end.
 - Other statuses produce Free. Scheduled cancellation preserves Pro until the period end.
 - Free is limited to three firms and Free tokens include signed `max_firms: 3`. Pro's firm-limit claims are unchanged.
-- All registered devices receive the account's plan; there is no per-account device cap. A third or later installation on an eligible Pro account receives a signed, device-bound Pro token.
-- Removing a device from the account page deletes its registration. The removed installation can register again if it calls the endpoint and receives the account's plan; removal is not a permanent installation ban.
+- Both Free and Pro allow one active device per account, including during Pro's trial. A second PC receives HTTP 409 `device_limit_reached`, with no Free or Pro token.
+- Removing the active device frees the slot for another PC. A removed installation can register again only while that slot is free. Existing inactive registrations are not promoted automatically.
 - Previously issued tokens remain valid until their expiration. The desktop must refresh after online changes; a removed device cannot be instantly revoked while offline under this contract.
 
-Without a Stripe account, the owner can insert a staging subscription fixture to test Pro. Fixture tests do not prove real checkout or webhook delivery. Approved planned Pro prices are **300 RON per six months** and **500 RON per year**; real Stripe prices are configured separately when the account is available.
+Without a Stripe account, the owner can insert a staging subscription fixture to test Pro. Fixture tests do not prove real checkout or webhook delivery. Pro includes one 30-day free trial per account, with card collection before activation; the selected paid period starts afterward. Approved Pro prices are **300 RON per six months** and **500 RON per year**; real Stripe prices are configured separately when the account is available.
 
 ## Integration acceptance
 
 - [ ] Track B acknowledges the proposed v1 field names, claims, token lifetime and offline behavior.
 - [ ] Sign in with the confirmed staging account and refresh its Supabase session.
 - [ ] Verify a Free JWT using the supplied public key and reject a token for another user/device/audience.
-- [ ] Apply `20261026000000_remove_device_limit.sql` before deploying the updated license API and pages.
+- [ ] Apply all migrations through `20261108000000_one_device_per_account.sql` and `20261108010000_zero_amount_invoices.sql` before deploying the updated API and account pages.
 - [ ] Verify the signed three-firm cap on Free; confirm Pro does not inherit the Free cap.
-- [ ] Verify Pro with a staging subscription on a third and fourth installation, with each token bound to its requesting PC.
-- [ ] Remove one device from the account page and confirm the remaining devices retain Pro.
+- [ ] Verify Pro's signed `pro_until` matches the entitlement deadline, including payment grace, while `exp` remains capped at 24 hours. Display `pro_until` in the Cont panel only after verifying the token.
+- [ ] Verify one active device on Free and Pro, repeated renewal on that PC, and HTTP 409 without a token on the second PC.
+- [ ] Remove the active device, activate another PC and confirm that the previous PC receives HTTP 409 on its next online request.
 - [ ] Confirm an already-issued removed-device token is honored only until its existing expiration.
-- [ ] Handle HTTP 401 by refreshing/signing in; handle HTTP 503 without discarding an unexpired license.
+- [ ] Handle HTTP 409 as blocked activation, link to account device management and issue no local fallback license. Handle HTTP 401 by refreshing/signing in; handle HTTP 503 without discarding an unexpired license.
 - [ ] Render null release metadata without hiding or breaking the current app.
 - [ ] Run the same tests through the stable API domain after its deployment is verified.
 

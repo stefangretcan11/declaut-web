@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import Stripe from "stripe";
-import { BillingError, billingReadiness, readBillingConfig, type BillingConfig } from "../src/lib/billing/config";
+import { BillingError, billingReadiness, PRO_TRIAL_DAYS, readBillingConfig, type BillingConfig } from "../src/lib/billing/config";
 import { createBillingHandler } from "../src/lib/billing/http";
 import { createWebhookHandler } from "../src/lib/billing/webhook";
 import { createStripeGateway } from "../src/lib/billing/stripe-adapter";
@@ -50,6 +50,7 @@ function gateway(overrides: Partial<StripeGateway> = {}): StripeGateway {
     price: async (id) => id === config.prices.semiannual ? active.items.data[0].price : { id, active: true, currency: "ron", unit_amount: 50000, recurring: { interval: "year", interval_count: 1 } },
     customer: async () => ({ id: "cus_fixture", metadata: { user_id: userId } }),
     createCustomer: async () => ({ id: "cus_fixture" }),
+    hasSubscriptionHistory: async () => false,
     createCheckout: async () => ({ id: "cs_test_fixture", url: "https://checkout.stripe.com/c/pay/fixture", expires_at: Math.floor(Date.now() / 1000) + 1800 }),
     createPortal: async () => ({ url: "https://billing.stripe.com/p/session/fixture" }),
     subscription: async () => structuredClone(active), checkout: async () => structuredClone(checkout), invoice: async () => structuredClone(paid),
@@ -99,8 +100,9 @@ test("Checkout authenticates, checks Origin and rejects caller-supplied arbitrar
 
 test("Checkout reuses its customer and active session instead of starting duplicate payments", async () => {
   const store = new MemoryStore(); let customers = 0; let sessions = 0;
-  const stripe = gateway({ createCustomer: async (_profile, key) => { customers++; assert.equal(key, `declaut-customer:test:${userId}`); return { id: "cus_fixture" }; }, createCheckout: async (customer, user, price, origin, key) => {
+  const stripe = gateway({ createCustomer: async (_profile, key) => { customers++; assert.equal(key, `declaut-customer:test:${userId}`); return { id: "cus_fixture" }; }, createCheckout: async (customer, user, price, origin, key, trial) => {
     sessions++; assert.equal(customer, "cus_fixture"); assert.equal(user, userId); assert.equal(price, config.prices.semiannual); assert.equal(origin, "https://declaut.test"); assert.equal(key, "declaut-checkout:reservation-token");
+    assert.equal(trial, true);
     return { id: "cs_test_fixture", url: "https://checkout.stripe.com/c/pay/fixture", expires_at: Date.now() / 1000 + 1800 };
   } });
   const handler = createBillingHandler("checkout", { authenticate: async () => ({ id: userId, email: "fixture@example.invalid" }), config: () => config, store: () => store, stripe: () => stripe });
@@ -113,12 +115,60 @@ test("Checkout reuses its customer and active session instead of starting duplic
 test("Stripe SDK adapter sends required address/tax collection, subscription mode and fixed return URLs", async () => {
   let received: Record<string, unknown> | undefined; let requestKey: string | undefined;
   const fake = { checkout: { sessions: { create: async (params: Record<string, unknown>, options: { idempotencyKey: string }) => { received = params; requestKey = options.idempotencyKey; return { id: "cs_test_fixture", url: "https://checkout.stripe.com/c/pay/fixture", expires_at: 1900000000 }; } } } } as unknown as Stripe;
-  await createStripeGateway(config, fake).createCheckout("cus_fixture", userId, config.prices.semiannual, "https://declaut.test", "test-reservation");
+  await createStripeGateway(config, fake).createCheckout("cus_fixture", userId, config.prices.semiannual, "https://declaut.test", "test-reservation", true);
   assert.equal(received?.mode, "subscription"); assert.equal(received?.billing_address_collection, "required");
   assert.deepEqual(received?.tax_id_collection, { enabled: true });
+  assert.equal(received?.payment_method_collection, "always");
+  assert.deepEqual(received?.allowed_payment_method_types, ["card"]);
+  assert.deepEqual(received?.subscription_data, { metadata: { user_id: userId }, trial_period_days: PRO_TRIAL_DAYS, trial_settings: { end_behavior: { missing_payment_method: "cancel" } } });
   assert.equal(received?.success_url, "https://declaut.test/account?paid=1"); assert.equal(received?.cancel_url, "https://declaut.test/account?checkout=cancelled");
   assert.equal(requestKey, "test-reservation");
   assert.ok(Number(received?.expires_at) > Date.now() / 1000 + 1800);
+  await createStripeGateway(config, fake).createCheckout("cus_fixture", userId, config.prices.yearly, "https://declaut.test", "returning-reservation", false);
+  assert.deepEqual(received?.subscription_data, { metadata: { user_id: userId } });
+});
+
+test("Only first subscriptions receive a trial on either paid interval", async () => {
+  for (const interval of ["semiannual", "yearly"]) {
+    for (const history of [false, true]) {
+      let sessions = 0;
+      const stripe = gateway({ hasSubscriptionHistory: async () => history, createCheckout: async (_customer, _user, _price, _origin, _key, trial) => {
+        assert.equal(trial, !history); sessions++;
+        return { id: "cs_returning", url: "https://checkout.stripe.com/c/pay/returning", expires_at: Date.now() / 1000 + 3600 };
+      } });
+      const handler = createBillingHandler("checkout", { authenticate: async () => ({ id: userId, email: "fixture@example.invalid" }), config: () => config, store: () => new MemoryStore(), stripe: () => stripe });
+      assert.equal((await handler(paymentRequest(interval))).status, 200);
+      assert.equal(sessions, 1);
+    }
+  }
+});
+
+test("Trial eligibility fails closed when Stripe history cannot be checked", async () => {
+  let sessions = 0;
+  const handler = createBillingHandler("checkout", { authenticate: async () => ({ id: userId, email: "fixture@example.invalid" }), config: () => config, store: () => new MemoryStore(), stripe: () => gateway({ hasSubscriptionHistory: async () => { throw new Error("unavailable"); }, createCheckout: async () => { sessions++; throw new Error("must not create"); } }) });
+  assert.equal((await handler(paymentRequest())).status, 503);
+  assert.equal(sessions, 0);
+});
+
+test("The Stripe history lookup includes canceled subscriptions", async () => {
+  const fake = { subscriptions: { list: async (params: unknown) => {
+    assert.deepEqual(params, { customer: "cus_fixture", status: "all", limit: 1 });
+    return { data: [{ id: "sub_canceled_trial", status: "canceled" }] };
+  } } } as unknown as Stripe;
+  assert.equal(await createStripeGateway(config, fake).hasSubscriptionHistory("cus_fixture"), true);
+});
+
+test("Trial Pro access ends at trial_end and only then uses the selected paid billing period", () => {
+  const start = active.items.data[0].current_period_start;
+  const end = start + PRO_TRIAL_DAYS * 86400;
+  const trial = { ...structuredClone(active), status: "trialing", trial_start: start, trial_end: end };
+  const snapshot = subscriptionSnapshot(trial, config);
+  assert.equal(snapshot.is_pro, true);
+  assert.equal(snapshot.current_period_end, new Date(end * 1000).toISOString());
+  assert.equal(subscriptionSnapshot({ ...trial, trial_end: null }, config).is_pro, false);
+  assert.equal(subscriptionSnapshot({ ...trial, trial_end: start }, config).is_pro, false);
+  const renewed = subscriptionSnapshot({ ...trial, status: "active" }, config);
+  assert.equal(renewed.current_period_end, new Date(active.items.data[0].current_period_end * 1000).toISOString());
 });
 
 test("Native billing form errors retain the browser's real Host after Next.js loopback normalization", async () => {

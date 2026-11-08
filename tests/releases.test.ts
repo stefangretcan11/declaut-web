@@ -50,6 +50,30 @@ test("Preview channel selects the newest published non-draft release, including 
   assert.equal((await read()).latest_version, "1.3.0-rc1");
 });
 
+test("Preview channel skips newer Pro tags and falls back to the newest public release", async () => {
+  for (const tag of ["v1.3.0", "v1.3.0-rc1"]) {
+    const publicRelease = {
+      ...release,
+      tag_name: tag,
+      prerelease: tag.includes("-rc"),
+      published_at: "2026-10-24T10:00:00Z",
+      assets: [{ name: "Declaut-Setup.exe", browser_download_url: `https://github.com/example/releases/releases/download/${tag}/Declaut-Setup.exe` }],
+    };
+    const pro = { ...release, tag_name: "v1.4.0-pro", published_at: "2026-10-25T10:00:00Z" };
+    const proRc = { ...pro, tag_name: "v1.4.0-pro-rc1", prerelease: true, published_at: "2026-10-26T10:00:00Z" };
+    const fetcher = (async () => Response.json([proRc, release, pro, publicRelease])) as typeof fetch;
+    const read = createReleaseReader("example/releases", undefined, fetcher, Date.now, { includePrereleases: true });
+    assert.deepEqual(await read(), { latest_version: tag.slice(1), download_url: publicRelease.assets[0].browser_download_url });
+  }
+});
+
+test("Preview channel returns unavailable metadata when only Pro releases exist", async () => {
+  const pro = { ...release, tag_name: "v1.4.0-pro", prerelease: true };
+  const fetcher = (async () => Response.json([pro])) as typeof fetch;
+  const read = createReleaseReader("example/releases", undefined, fetcher, Date.now, { includePrereleases: true });
+  assert.deepEqual(await read(), { latest_version: null, download_url: null });
+});
+
 test("Release metadata rejects installer URLs outside the configured repository or containing credentials", async () => {
   for (const url of ["https://evil.example/setup.exe", "https://github.com/other/repo/releases/download/v1/setup.exe", "https://user:pass@github.com/example/releases/releases/download/v1/setup.exe"]) {
     const fetcher = (async () => Response.json({ ...release, assets: [{ name: "setup.exe", browser_download_url: url }] })) as typeof fetch;

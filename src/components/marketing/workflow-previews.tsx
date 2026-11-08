@@ -1,4 +1,4 @@
-function Tick() {
+export function Tick() {
   return <svg aria-hidden="true" viewBox="0 0 16 16" fill="none"><path d="m4 8 2.5 2.5L12 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 

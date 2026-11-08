@@ -1,5 +1,7 @@
 # Deployment checks and remaining launch inputs
 
+The desktop production values, installer release sequence and production license acceptance command are tracked in [the production desktop release handoff](production-desktop-release.md). Production remains blocked until those checks and live billing acceptance pass.
+
 ## Automated checks without provider accounts
 
 [CI](../.github/workflows/ci.yml) runs on pushes and pull requests, with read-only repository permissions and no staging secrets:

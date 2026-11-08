@@ -38,7 +38,7 @@ export function createReleaseReader(
       if (!response.ok) throw new Error("Release metadata unavailable");
       const data: unknown = await response.json();
       const release = options.includePrereleases
-        ? z.array(releaseSchema).parse(data).filter((item) => !item.draft)
+        ? z.array(releaseSchema).parse(data).filter((item) => !item.draft && !/-pro/i.test(item.tag_name))
           .sort((a, b) => (Date.parse(b.published_at ?? "") || 0) - (Date.parse(a.published_at ?? "") || 0))[0]
         : releaseSchema.parse(data);
       if (!release || release.draft || (release.prerelease && !options.includePrereleases)) throw new Error("No eligible release");

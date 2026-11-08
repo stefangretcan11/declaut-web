@@ -41,7 +41,7 @@ try {
   const required = {
     profiles: ["id", "email", "company_name", "cui", "stripe_customer_id", "terms_accepted_at", "terms_version", "created_at"],
     subscriptions: ["id", "user_id", "status", "price_id", "current_period_start", "current_period_end", "cancel_at_period_end", "is_pro", "updated_at"],
-    devices: ["id", "user_id", "device_id", "device_name", "created_at", "last_seen_at"],
+    devices: ["id", "user_id", "device_id", "device_name", "created_at", "last_seen_at", "is_active"],
     billing_invoices: ["id", "user_id", "subscription_id", "status", "currency", "amount_paid", "stripe_invoice_number", "stripe_hosted_invoice_url", "fiscal_status", "fiscal_number", "fiscal_pdf_url", "created_at"],
   };
   for (const [table, columns] of Object.entries(required)) {

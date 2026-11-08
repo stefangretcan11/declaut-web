@@ -1,0 +1,32 @@
+{
+  "contract": "license-v1-proposed",
+  "environment": "production",
+  "desktopReleaseReady": false,
+  "websiteUrl": null,
+  "apiBaseUrl": null,
+  "supabaseUrl": null,
+  "supabasePublishableKey": null,
+  "verifiedOn": null,
+  "license": {
+    "issuer": "declaut-production",
+    "audience": "declaut-desktop",
+    "version": 1,
+    "maxLifetimeSeconds": 86400,
+    "publicKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "GHO9Qr1a1R15mcOYLbYfdo1T7gnZkmXBze_MtQBiA4k",
+      "kid": "production-656ad39d72c8",
+      "alg": "EdDSA",
+      "use": "sig"
+    }
+  },
+  "plans": {
+    "freeMaxFirms": 3,
+    "maxDevicesPerAccount": 1,
+    "proTrialDays": 30,
+    "proTrialRequiresCard": true
+  },
+  "requiredMigration": "20261108000000_one_device_per_account.sql",
+  "releaseChannel": "stable"
+}

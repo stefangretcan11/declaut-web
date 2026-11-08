@@ -34,5 +34,12 @@
       "latest_version",
       "download_url"
     ]
-  }
+  },
+  "plans": {
+    "freeMaxFirms": 3,
+    "maxDevicesPerAccount": 1,
+    "proTrialDays": 30,
+    "proTrialRequiresCard": true
+  },
+  "requiredMigration": "20261108000000_one_device_per_account.sql"
 }

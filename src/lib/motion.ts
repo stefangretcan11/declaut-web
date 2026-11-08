@@ -1,6 +1,8 @@
 import { frame, inView, stagger, type AnimationSequence, type useAnimate } from "motion/react";
 
-const EASE = [0.22, 1, 0.36, 1] as const;
+export const MOTION_EASE = [0.22, 1, 0.36, 1] as const;
+export const MATRIX_ROW_REVEAL = { duration: 0.48, stagger: 0.08, transform: "translate3d(0, 8px, 0)", opacity: 0.3 } as const;
+const EASE = MOTION_EASE;
 type ScopedAnimate = ReturnType<typeof useAnimate>[1];
 type Controls = ReturnType<ScopedAnimate>;
 type Step = {
@@ -84,7 +86,7 @@ export function enhanceMotion(root: HTMLElement, animate: ScopedAnimate, seen: W
   const previewSteps = (figure: HTMLElement, at = 0): Step[] => {
     const scene = figure.dataset.motionScene;
     if (scene === "hero" || scene === "matrix") return [
-      { elements: select(figure, ".preview-table-row:not(.preview-table-head)"), at: at + 0.18, duration: 0.48, transform: "translate3d(0, 8px, 0)", opacity: 0.3 },
+      { ...MATRIX_ROW_REVEAL, elements: select(figure, ".preview-table-row:not(.preview-table-head)"), at: at + 0.18 },
       { elements: select(figure, ".preview-status"), at: at + 0.26, duration: 0.4, stagger: 0.03, transform: "none", opacity: 0.5 },
     ];
     if (scene === "upload") return [

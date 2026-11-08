@@ -11,6 +11,18 @@ The integration is implemented and fixture-tested. No Stripe account, real test 
 
 There is no monthly plan. The backend retrieves each configured price and verifies its currency, exact amount, active state and interval before creating a checkout. Display prices alone do not enable billing.
 
+## First Pro activation: 30 days free, card upfront
+
+The first Pro Checkout includes `subscription_data.trial_period_days=30`. Both paid options keep their full recurring period **after** the trial: 300 RON for six months or 500 RON for twelve months. Checkout explicitly requires a payment method and filters the allowed methods to cards. If the card is removed before the trial ends, the trial's missing-payment-method behavior is cancellation.
+
+Trial eligibility is determined server-side from the bound Stripe customer's subscription history (`status=all`, including canceled subscriptions). Any previous subscription prevents a second trial, including after cancellation, switching plans or reinstalling the desktop app. An abandoned Checkout without a subscription does not consume the trial. History lookup failure blocks creation; callers cannot request a trial themselves. Existing checkout reservation/customer reuse remains in place.
+
+Subscription webhook snapshots use `trial_start` and `trial_end` while status is `trialing`, so the account date and signed Pro deadline cannot extend into the later paid period. Active subscriptions use the actual paid item period. Zero-amount trial invoices have `fiscal_status=not_due` after `20261108010000_zero_amount_invoices.sql`; they do not queue a fiscal invoice. Both plans, including Pro trials, allow one active device per account.
+
+Provider acceptance must verify card collection, no initial charge, one-time eligibility, cancellation before charging, automatic first payment after 30 days and the full 6- or 12-month period after that payment. This is pending real Stripe access. Live billing remains disabled under the existing fiscal-invoicing release gate.
+
+Sources: [Stripe Checkout Session parameters](https://docs.stripe.com/api/checkout/sessions/create), [Stripe trial behavior](https://docs.stripe.com/api/subscriptions/update).
+
 ## Configure a Stripe sandbox
 
 After the owner creates the Stripe account:
@@ -76,6 +88,6 @@ This code does **not** issue Romanian fiscal invoices or submit to e-Factura. A 
 - Signed fixture events use the real Stripe SDK signature verifier and dependency-injected handler factories; no payment-provider request is made.
 - Tests cover all six event types, tampered bodies/signatures, duplicate and out-of-order events, slow concurrent fetches, ownership mismatch and unknown prices.
 - Disposable PostgreSQL tests cover customer binding, concurrent checkout reservation, fencing, invoice uniqueness/fiscal-field preservation, RLS and denial of client access to server-only tables/functions.
-- Browser tests against staging cover account plan/renewal display, paid-document/fiscal-pending presentation, Pro on all registered devices, device removal and disabled billing endpoints when no Stripe key is configured. Apply all migrations, including removal of the device cap, before running the updated tests.
+- Browser tests against staging cover account plan/renewal display, paid-document/fiscal-pending presentation, one active device on Free and Pro, second-device rejection, device removal and disabled billing endpoints when no Stripe key is configured. Apply all migrations, through the single-device and zero-amount-invoice migrations, before running the updated tests.
 
 References: [Stripe Checkout subscriptions](https://docs.stripe.com/payments/checkout/build-subscriptions), [webhook signature verification](https://docs.stripe.com/webhooks/signature), [Stripe API idempotency](https://docs.stripe.com/api/idempotent_requests), [subscription lifecycle](https://docs.stripe.com/billing/subscriptions/webhooks).

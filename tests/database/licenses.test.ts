@@ -13,6 +13,7 @@ let bin: string;
 let started = false;
 let admin: Client;
 const backfilledId = randomUUID();
+const legacyDeviceOwner = randomUUID();
 
 function connection() { return new Client({ host: root, port: 55435, database: "postgres", user: "postgres" }); }
 
@@ -38,8 +39,12 @@ before(async () => {
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   `);
   await admin.query("insert into auth.users (id, email) values ($1, 'existing@example.test')", [backfilledId]);
+  await admin.query("insert into auth.users (id, email) values ($1, 'legacy-devices@example.test')", [legacyDeviceOwner]);
   const migrationDir = new URL("../../supabase/migrations/", import.meta.url);
   for (const file of readdirSync(migrationDir).filter((name) => name.endsWith(".sql")).sort()) {
+    if (file === "20261108000000_one_device_per_account.sql") {
+      await admin.query("insert into public.devices(user_id,device_id,device_name,created_at) values ($1,'legacy-first','First PC',now()-interval '2 days'),($1,'legacy-second','Second PC',now()-interval '1 day')", [legacyDeviceOwner]);
+    }
     await admin.query(readFileSync(new URL(file, migrationDir), "utf8"));
   }
 }, { timeout: 30_000 });
@@ -151,25 +156,41 @@ test("Past-due grace uses the current period start and expires at 72 hours", asy
   assert.equal((await resolve(outside, "device")).plan, "free");
 });
 
-test("Simultaneous requests grant Pro to every device, including existing Free registrations", async () => {
-  const user = await newUser();
-  const devices = ["one", "two", "three", "four", "five"];
-  const free = await Promise.all(devices.map((device) => resolve(user, device)));
-  assert.equal(free.every((result) => result.plan === "free"), true);
-  await subscription(user);
-  const results = await Promise.all(devices.map((device) => resolve(user, device)));
-  for (const result of results) {
-    assert.equal(result.plan, "pro");
-    assert.equal(result.device_limit_reached, false);
-    assert.ok(result.pro_until > new Date());
+test("Simultaneous first registrations activate exactly one device for both Free and Pro", async () => {
+  for (const pro of [false, true]) {
+    const user = await newUser();
+    if (pro) await subscription(user);
+    const results = await Promise.all(["one", "two", "three", "four", "five"].map((device) => resolve(user, device)));
+    const allowed = results.filter((result) => !result.device_limit_reached);
+    assert.equal(allowed.length, 1);
+    assert.equal(allowed[0].plan, pro ? "pro" : "free");
+    assert.equal(results.filter((result) => result.device_limit_reached).length, 4);
+    assert.equal(results.filter((result) => result.device_limit_reached).every((result) => result.plan === "blocked"), true);
+    assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 1);
+    await assert.rejects(admin.query("insert into public.devices(user_id,device_id,device_name,is_active) values ($1,'bypass','Bypass PC',true)", [user]), /unique constraint/);
   }
-  assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, devices.length);
 });
 
-test("New Pro registrations have no device cap", async () => {
-  const user = await newUser(); await subscription(user);
-  const results = await Promise.all(["one", "two", "three", "four"].map((device) => resolve(user, device)));
-  assert.equal(results.every((result) => result.plan === "pro" && !result.device_limit_reached), true);
+test("Upgrading and downgrading preserve the account's single active device", async () => {
+  const user = await newUser();
+  assert.equal((await resolve(user, "one")).plan, "free");
+  assert.equal((await resolve(user, "two")).device_limit_reached, true);
+  const id = await subscription(user);
+  assert.equal((await resolve(user, "one")).plan, "pro");
+  assert.equal((await resolve(user, "two")).device_limit_reached, true);
+  await admin.query("update public.subscriptions set status='canceled' where id=$1", [id]);
+  assert.equal((await resolve(user, "one")).plan, "free");
+  assert.equal((await resolve(user, "two")).device_limit_reached, true);
+});
+
+test("Existing registrations are preserved with only the oldest device active", async () => {
+  const rows = (await admin.query("select device_id,is_active from public.devices where user_id=$1 order by created_at,id", [legacyDeviceOwner])).rows;
+  assert.deepEqual(rows, [{ device_id: "legacy-first", is_active: true }, { device_id: "legacy-second", is_active: false }]);
+  assert.equal((await resolve(legacyDeviceOwner, "legacy-second")).device_limit_reached, true);
+  const first = (await admin.query("select id from public.devices where user_id=$1 and is_active", [legacyDeviceOwner])).rows[0].id;
+  await admin.query("select public.remove_own_device($1,$2)", [legacyDeviceOwner, first]);
+  assert.equal((await resolve(legacyDeviceOwner, "new-pc")).device_limit_reached, false);
+  assert.equal((await resolve(legacyDeviceOwner, "legacy-second")).device_limit_reached, true);
 });
 
 test("Unknown Stripe prices cannot grant Pro through the database resolver", async () => {
@@ -197,17 +218,16 @@ test("Device removal is server-only, owner-scoped and idempotent", async () => {
   assert.equal((await admin.query("select id from public.devices where id = $1", [foreignId])).rowCount, 1);
 });
 
-test("Removing a device during another refresh preserves Pro; removed devices can register again", async () => {
+test("Removing the active device frees its slot atomically for another PC", async () => {
   const user = await newUser(); await subscription(user);
-  await resolve(user, "first"); await resolve(user, "second"); await resolve(user, "third");
-  assert.equal((await resolve(user, "third")).plan, "pro");
+  await resolve(user, "first");
+  assert.equal((await resolve(user, "second")).device_limit_reached, true);
   const firstId = (await admin.query("select id from public.devices where user_id = $1 and device_id = 'first'", [user])).rows[0].id;
   const server = await session("service_role");
   try {
-    await Promise.all([server.query("select public.remove_own_device($1, $2)", [user, firstId]), resolve(user, "third")]);
-    assert.equal((await resolve(user, "third")).plan, "pro");
-    assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 2);
-    assert.equal((await resolve(user, "first")).plan, "pro");
-    assert.equal((await admin.query("select id from public.devices where user_id = $1", [user])).rowCount, 3);
+    await Promise.all([server.query("select public.remove_own_device($1, $2)", [user, firstId]), resolve(user, "second")]);
+    assert.equal((await resolve(user, "second")).plan, "pro");
+    assert.equal((await resolve(user, "first")).device_limit_reached, true);
+    assert.equal((await admin.query("select id from public.devices where user_id = $1 and is_active", [user])).rowCount, 1);
   } finally { await server.end(); }
 });

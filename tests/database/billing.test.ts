@@ -101,3 +101,12 @@ test("Invoice RLS allows only owner reads; client writes and billing RPCs are de
     for (const table of ["billing_sync_cursors", "billing_webhook_events", "billing_checkout_requests"]) await assert.rejects(client.query(`select * from public.${table}`), /permission denied/);
   } finally { await client.end(); }
 });
+
+test("Zero-amount trial invoices do not queue a fiscal invoice", async () => {
+  const owner = await user(); await bind(owner, "cus_trial_invoice");
+  const sub = snapshot("sub_trial_invoice", "cus_trial_invoice", true, "trialing");
+  const invoice = { id: "in_trial_zero", subscription_id: sub.id, status: "paid", currency: "ron", amount_paid: 0, stripe_invoice_number: null, stripe_hosted_invoice_url: null, stripe_invoice_pdf_url: null, created_at: new Date().toISOString() };
+  assert.equal(await apply(await begin(sub.id), sub, invoice), true);
+  assert.equal((await admin.query("select fiscal_status from public.billing_invoices where id=$1", [invoice.id])).rows[0].fiscal_status, "not_due");
+  assert.equal((await admin.query("select plan from public.resolve_device_license($1,'trial-pc','Trial PC')", [owner])).rows[0].plan, "pro");
+});

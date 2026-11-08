@@ -44,7 +44,8 @@ export interface StripeGateway {
   price(id: string): Promise<unknown>;
   customer(id: string): Promise<unknown>;
   createCustomer(profile: BillingProfile, idempotencyKey: string): Promise<{ id: string }>;
-  createCheckout(customerId: string, userId: string, priceId: string, origin: string, idempotencyKey: string): Promise<{ id: string; url: string | null; expires_at: number }>;
+  hasSubscriptionHistory(customerId: string): Promise<boolean>;
+  createCheckout(customerId: string, userId: string, priceId: string, origin: string, idempotencyKey: string, trial: boolean): Promise<{ id: string; url: string | null; expires_at: number }>;
   createPortal(customerId: string, origin: string): Promise<{ url: string }>;
   subscription(id: string): Promise<unknown>;
   checkout(id: string): Promise<unknown>;
