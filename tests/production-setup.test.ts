@@ -1,10 +1,38 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import { configureProductionStripe } from "../scripts/configure-production-stripe";
 import { productionAuthConfig } from "../scripts/production-auth-config.mjs";
 import { productionConfigIssues, productionSiteMatches, productionSupabaseMatches } from "../src/lib/production-config";
 import production from "../docs/track-b-production-config.json";
+
+test("Romanian production emails use matching button/fallback links and a scanner-safe confirmation page", () => {
+  const token = "a".repeat(64);
+  for (const [template, type] of [["confirmation", "email"], ["recovery", "recovery"]]) {
+    const html = readFileSync(`supabase/templates/production-${template}.html`, "utf8");
+    assert.match(html, /<html lang="ro">/);
+    assert.match(html, /copiază linkul de mai jos/);
+    assert.match(html, /Continuă/);
+    assert.doesNotMatch(html, /\.ConfirmationURL|\.Data|<script|<form/i);
+    const rendered = html.replaceAll("{{ .SiteURL }}", production.websiteUrl).replaceAll("{{ .TokenHash }}", token);
+    const links = [...rendered.matchAll(/href="([^"]+)"/g)].map((match) => new URL(match[1].replaceAll("&amp;", "&")));
+    const confirmations = links.filter((url) => url.pathname === "/auth/confirm");
+    assert.equal(confirmations.length, 2);
+    assert.equal(confirmations[0].href, confirmations[1].href);
+    for (const url of confirmations) {
+      assert.equal(url.origin, production.websiteUrl);
+      assert.equal(url.searchParams.get("token_hash"), token);
+      assert.equal(url.searchParams.get("type"), type);
+      assert.equal(url.hash, "");
+    }
+  }
+  const settings = productionAuthConfig(production.websiteUrl, { confirmation: readFileSync("supabase/templates/production-confirmation.html", "utf8"), recovery: readFileSync("supabase/templates/production-recovery.html", "utf8") });
+  assert.equal(settings.mailer_subjects_confirmation, "Confirmă adresa de email pentru Declaut");
+  assert.equal(settings.mailer_subjects_recovery, "Resetează parola contului Declaut");
+  assert.match(settings.mailer_templates_confirmation_content, /Bun venit la Declaut/);
+  assert.match(settings.mailer_templates_recovery_content, /parolă nouă/);
+});
 
 test("Production URL checks accept equivalent root URLs and reject missing schemes, different origins and embedded paths", () => {
   const env = {
