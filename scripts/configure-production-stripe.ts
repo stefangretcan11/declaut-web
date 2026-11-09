@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import Stripe from "stripe";
 import production from "../docs/track-b-production-config.json";
-import { PLAN_PRICES, STRIPE_API_VERSION } from "../src/lib/billing/config";
+import { PLAN_PRICES, STRIPE_API_VERSION, stripeKeyMode } from "../src/lib/billing/config";
 import { validPrice } from "../src/lib/billing/snapshots";
 
 const webhookEvents: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed"];
@@ -50,12 +50,13 @@ async function main() {
   console.log(`Stripe production plan for ${production.websiteUrl}: Declaut Pro; RON 300 / 6 months; RON 500 / 12 months; period-end cancellation and card updates; six webhook events.`);
   console.log("No customers, subscriptions, charges or fiscal invoices are created by this setup.");
   if (!process.argv.includes("--apply")) { console.log("Dry run complete; --apply creates/reuses these provider settings and saves returned values privately."); return; }
-  if (process.env.LICENSE_ISSUER !== "declaut-production" || process.env.SITE_URL !== production.websiteUrl || !process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) throw new Error("Production setup requires the matching production origin/issuer and STRIPE_SECRET_KEY in live mode");
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION, maxNetworkRetries: 2, timeout: 15000 });
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (process.env.LICENSE_ISSUER !== "declaut-production" || process.env.SITE_URL !== production.websiteUrl || stripeKeyMode(secretKey) !== "live") throw new Error("Production setup requires the matching production origin/issuer and STRIPE_SECRET_KEY in live mode");
+  const stripe = new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION, maxNetworkRetries: 2, timeout: 15000 });
   const saved = await configureProductionStripe(stripe, production.websiteUrl, process.env.STRIPE_WEBHOOK_SECRET);
   const path = ".env.declaut-production.local";
   const env = { ...parseEnv(readFileSync(path, "utf8")), ...saved };
   writeFileSync(path, Object.entries(env).map(([name, value]) => `${name}=${JSON.stringify(value)}`).join("\n") + "\n", { mode: 0o600 }); chmodSync(path, 0o600);
   console.log(`Provider settings saved to ${path}. Returned secrets were not printed. Live checkout switches were preserved.`);
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error instanceof Error && !error.message.includes("sk_") && !error.message.includes("whsec_") ? error.message : "Stripe production setup failed; inspect provider settings"); process.exitCode = 1; });
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error instanceof Error && !/(?:sk_|rk_|whsec_)/.test(error.message) ? error.message : "Stripe production setup failed; inspect provider settings"); process.exitCode = 1; });

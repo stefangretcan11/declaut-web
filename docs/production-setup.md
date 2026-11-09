@@ -47,6 +47,8 @@ Prima comandă descrie planul fără cereri către provider. A doua creează/reu
 
 Sunt necesare `STRIPE_SECRET_KEY`, `STRIPE_PRICE_SEMIANNUAL`, `STRIPE_PRICE_YEARLY`, `STRIPE_PORTAL_CONFIGURATION_ID`, `STRIPE_WEBHOOK_SECRET`. Endpoint: `https://www.declaut.ro/api/stripe/webhook`, versiune `2026-09-30.endive`. Portalul permite actualizarea cardului, documentele și anularea la sfârșitul perioadei; schimbarea planului este dezactivată la lansare.
 
+`STRIPE_SECRET_KEY` acceptă atât `sk_live_…`, cât și cheia restricționată `rk_live_…`, cu permisiunile necesare operațiilor de billing. Ambele sunt chei private de server. Copiați secretul destinației webhook (`whsec_…`) în `STRIPE_WEBHOOK_SECRET` pentru Vercel Production; acesta este distinct de cheia API. După modificarea variabilelor sau publicarea suportului pentru chei restricționate, efectuați un deployment nou. Permisiunile necesare sunt descrise în [documentația billing](billing.md).
+
 Verificați cardul obligatoriu, trialul fără încasare inițială, eligibilitatea unică, anularea, plata după 30 de zile și perioada completă de șase sau 12 luni. Cardurile de test și ceasurile accelerate se folosesc într-un mediu Stripe/Supabase izolat. Validarea live necesită un cont activ și o tranzacție reală autorizată; aceste scripturi nu au efectuat-o.
 
 ## Facturare manuală

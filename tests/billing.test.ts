@@ -79,8 +79,49 @@ test("Billing stays disabled without configured test keys/prices and rejects liv
   assert.equal(billingReadiness({ ...configured, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl }).webhookReady, false);
 });
 
+test("Restricted test keys enable isolated billing while production and public-key boundaries still hold", () => {
+  const env = { STRIPE_SECRET_KEY: " rk_test_fixture_not_real ", STRIPE_WEBHOOK_SECRET: config.webhookSecret, STRIPE_PRICE_SEMIANNUAL: config.prices.semiannual, STRIPE_PRICE_YEARLY: config.prices.yearly };
+  assert.equal(billingReadiness(env).checkoutReady, true);
+  assert.equal(billingReadiness(env).portalReady, true);
+  assert.equal(billingReadiness(env).webhookReady, true);
+  assert.equal(readBillingConfig(env).secretKey, "rk_test_fixture_not_real");
+  assert.equal(readBillingConfig(env).mode, "test");
+  for (const identity of [{ LICENSE_ISSUER: "declaut-production" }, { NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl }]) {
+    const readiness = billingReadiness({ ...env, ...identity });
+    assert.equal(readiness.checkoutReady, false);
+    assert.equal(readiness.portalReady, false);
+    assert.equal(readiness.webhookReady, false);
+  }
+  for (const key of ["pk_live_fixture", "pk_test_fixture", "sk_org_fixture", "rk_live", "", "rk_live_fixture"]) {
+    const configured = { ...env, STRIPE_SECRET_KEY: key };
+    assert.equal(billingReadiness(configured).checkoutReady, false);
+    assert.throws(() => readBillingConfig(configured), BillingError);
+  }
+});
+
 test("Live checkout supports manual invoicing without provider credentials or a fiscal release flag", () => {
   const env = { STRIPE_SECRET_KEY: "sk_live_fixture", STRIPE_WEBHOOK_SECRET: "whsec_fixture", STRIPE_PRICE_SEMIANNUAL: "price_a", STRIPE_PRICE_YEARLY: "price_b", STRIPE_PORTAL_CONFIGURATION_ID: "bpc_fixture", SITE_URL: production.websiteUrl, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: production.supabasePublishableKey, SUPABASE_SERVICE_ROLE_KEY: "fixture", LICENSE_PRIVATE_KEY_BASE64: "fixture", LICENSE_KEY_ID: production.license.publicKey.kid, LICENSE_ISSUER: production.license.issuer, LICENSE_AUDIENCE: production.license.audience, COMPANY_LEGAL_NAME: "Operator", COMPANY_CUI: "26143268", COMPANY_ADDRESS: "Craiova", CONTACT_EMAIL: "owner@example.test", GITHUB_RELEASE_CHANNEL: "stable", BILLING_LIVE_ENABLED: "true" };
+  for (const key of ["sk_live_fixture", "rk_live_fixture", " rk_live_fixture "]) {
+    const configured = { ...env, STRIPE_SECRET_KEY: key };
+    assert.equal(billingReadiness(configured).checkoutReady, true);
+    assert.equal(billingReadiness(configured).portalReady, true);
+    assert.equal(billingReadiness(configured).webhookReady, true);
+    assert.equal(readBillingConfig(configured).mode, "live");
+    assert.equal(readBillingConfig(configured).secretKey, key.trim());
+    for (const override of [{ LICENSE_ISSUER: "declaut-staging" }, { SITE_URL: "https://wrong.example" }, { STRIPE_WEBHOOK_SECRET: "" }, { STRIPE_PORTAL_CONFIGURATION_ID: "" }, { STRIPE_PRICE_YEARLY: "price_a" }, { BILLING_LIVE_ENABLED: "false" }]) {
+      assert.equal(billingReadiness({ ...configured, ...override }).checkoutReady, false);
+    }
+    const disabled = { ...configured, BILLING_LIVE_ENABLED: "false" };
+    assert.equal(readBillingConfig(disabled, true).mode, "live");
+    assert.equal(readBillingConfig(disabled, false, true).mode, "live");
+  }
+  for (const key of ["pk_live_fixture", "pk_test_fixture", "sk_org_fixture"]) {
+    const configured = { ...env, STRIPE_SECRET_KEY: key };
+    assert.equal(billingReadiness(configured).mode, "unconfigured");
+    assert.throws(() => readBillingConfig(configured), BillingError);
+    assert.throws(() => readBillingConfig(configured, true), BillingError);
+    assert.throws(() => readBillingConfig(configured, false, true), BillingError);
+  }
   assert.equal(billingReadiness(env).checkoutReady, true);
   assert.equal(readBillingConfig(env).mode, "live");
   assert.equal(billingReadiness({ ...env, FISCAL_LIVE_READY: "false", OBLIO_CLIENT_SECRET: "", OBLIO_COMPANY_CIF: "retired" }).checkoutReady, true);
