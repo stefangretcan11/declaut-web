@@ -6,7 +6,7 @@ The site uses the existing warm off-white/dark-green design, system typography, 
 
 | Route | Content |
 | --- | --- |
-| `/` | Product introduction, three clearly labelled illustrative workflow previews, recent product updates and account CTA |
+| `/` | Product introduction, three clearly labelled illustrative workflow previews and account CTA |
 | `/noutati` | Dated app improvements: background scanning, archive location, D710, submission history/errors and Excel import template |
 | `/preturi` | Free/Pro comparison and owner-supplied Pro pricing |
 | `/descarcare` | Windows 10/11 availability, latest release/installer when configured, honest unavailable state otherwise |
@@ -17,7 +17,7 @@ The site uses the existing warm off-white/dark-green design, system typography, 
 
 ## Verified desktop updates
 
-The product copy was checked on **1 November 2026** against `mihaicostache1/accounting-automation` main at [`62bb0f1062a143e8bc72280252190d36438f5e21`](https://github.com/mihaicostache1/accounting-automation/commit/62bb0f1062a143e8bc72280252190d36438f5e21). `src/lib/product-updates.ts` supplies both the homepage highlights and `/noutati`. Dates refer to feature commits, not installer publication dates.
+The product copy was checked on **1 November 2026** against `mihaicostache1/accounting-automation` main at [`62bb0f1062a143e8bc72280252190d36438f5e21`](https://github.com/mihaicostache1/accounting-automation/commit/62bb0f1062a143e8bc72280252190d36438f5e21). `src/lib/product-updates.ts` supplies `/noutati`. Dates refer to feature commits, not installer publication dates.
 
 | Source commit | Confirmed behavior reflected on the site |
 | --- | --- |
