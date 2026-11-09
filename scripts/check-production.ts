@@ -3,7 +3,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { productionConfigIssues } from "../src/lib/production-config";
 import { billingReadiness, STRIPE_API_VERSION } from "../src/lib/billing/config";
-import { readOblioConfig } from "../src/lib/billing/oblio";
 import { validPrice } from "../src/lib/billing/snapshots";
 import production from "../docs/track-b-production-config.json";
 import { checkDeployment } from "./check-deployment.mjs";
@@ -21,9 +20,8 @@ async function main() {
     const key = createPublicKey(createPrivateKey(Buffer.from(env.LICENSE_PRIVATE_KEY_BASE64 ?? "", "base64"))).export({ format: "jwk" });
     add("Production signing key matches the desktop JWK", key.x === production.license.publicKey.x && key.crv === "Ed25519");
   } catch { add("Production signing key matches the desktop JWK", false); }
-  for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_SEMIANNUAL", "STRIPE_PRICE_YEARLY", "STRIPE_PORTAL_CONFIGURATION_ID", "OBLIO_CLIENT_ID", "OBLIO_CLIENT_SECRET", "CRON_SECRET"]) add(name, Boolean(env[name]?.trim()), env[name]?.trim() ? undefined : "missing server configuration");
-  try { readOblioConfig(env); add("Oblio supplier, series and explicit VAT setting", true); }
-  catch { add("Oblio supplier, series and explicit VAT setting", false); }
+  for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_SEMIANNUAL", "STRIPE_PRICE_YEARLY", "STRIPE_PORTAL_CONFIGURATION_ID"]) add(name, Boolean(env[name]?.trim()), env[name]?.trim() ? undefined : "missing server configuration");
+  console.log("Fiscal invoices are handled separately by the accountant; no invoicing provider is required.");
   add("Stripe key is live mode", env.STRIPE_SECRET_KEY?.startsWith("sk_live_") === true);
   add("Live checkout enabled after provider acceptance", billingReadiness(env).checkoutReady);
 
@@ -36,7 +34,7 @@ async function main() {
         add("Supabase requires confirmed email", response.ok && settings.mailer_autoconfirm === false);
       } catch { add("Supabase requires confirmed email", false); }
       const admin = createClient(production.supabaseUrl, env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-      for (const [table, columns] of Object.entries({ devices: "id,is_active", account_consents: "user_id,version,accepted_at", billing_invoices: "id,fiscal_issue_date,fiscal_retry_after,fiscal_attempts" })) {
+      for (const [table, columns] of Object.entries({ devices: "id,is_active", account_consents: "user_id,version,accepted_at", billing_invoices: "id,user_id,status,amount_paid,fiscal_number,fiscal_pdf_url" })) {
         const { error } = await admin.from(table).select(columns).limit(0);
         add(`Production schema ${table}`, !error, error ? "apply the committed migrations" : undefined);
       }

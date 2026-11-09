@@ -18,7 +18,7 @@ Status on **8 November 2026: acceptance pending**. The owner selected `https://w
 | Active devices, Free and Pro | 1 per account |
 | First Pro activation | 30 free days, card upfront, then 300 RON / six months or 500 RON / 12 months |
 
-The local production private key matches the public JWK. The authenticated test of the currently hosted API **failed signature verification**: deploy the matching production signer and this code before enabling accounts in an installer. Public HTTP and remote schema checks passed; they do not prove correct license signing.
+The local production private key matches the public JWK. The latest saved authenticated production test passed signature and license checks. Preserve the matching production signer when deploying this code. Public HTTP and remote schema checks passed; they do not prove correct license signing.
 
 The former staging project is now production. Old staging URLs/configuration are historical; provision an isolated staging project before further staging fixtures.
 
@@ -28,7 +28,7 @@ Follow [the API contract](license-contract.md). A second active installation get
 
 Production requires commercial terms version `2026-11-08`. Existing staging accounts receive HTTP 403 `terms_acceptance_required` until acceptance in `/account`; no device slot is reserved. Open the account page and retry afterward. Handle this separately from email confirmation.
 
-The reported desktop startup uses production settings in frozen executables and exits if the login dialog is closed. This repository cannot change those paths. Keep the account-disabled installer until the hosted signer, email, billing and fiscal acceptance pass, then test a fresh installed executable.
+The reported desktop startup uses production settings in frozen executables and exits if the login dialog is closed. This repository cannot change those paths. Keep the account-disabled installer until the hosted signer, email, billing and manual invoicing acceptance pass, then test a fresh installed executable.
 
 ## Acceptance
 
@@ -38,6 +38,6 @@ npm run test:production
 npm run check:production -- --remote
 ```
 
-The license test creates a temporary confirmed account and marked subscription fixtures, verifies Free/Pro/trial signatures, device transfer and payment grace, and removes its fixtures. It neither charges money nor sends email. SMTP, Stripe and Oblio acceptance are separate.
+The license test creates a temporary confirmed account and marked subscription fixtures, verifies Free/Pro/trial signatures, device transfer and payment grace, and removes its fixtures. It neither charges money nor sends email. SMTP, Stripe and the accountant’s manual invoicing workflow require separate acceptance. No invoicing API is required.
 
 Only public config and verification keys belong in the desktop app. Keep server, signing and provider secrets on the server.

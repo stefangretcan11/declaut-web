@@ -14,12 +14,17 @@ test("Production public pages identify the operator, show the commercial agreeme
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Termeni și condiții");
   await expect(page.locator(".legal-content")).toContainText("2026-11-08-production");
   await expect(page.locator(".legal-content")).toContainText("30 de zile gratuite");
+  await expect(page.locator(".legal-content")).toContainText("Facturile fiscale aferente abonamentului sunt emise manual de contabil și sunt comunicate separat");
+  await expect(page.locator(".legal-content")).not.toContainText("Oblio");
   await page.goto("/politica-de-confidentialitate");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Politica de confidențialitate");
   await expect(page.getByRole("link", { name: "costache.mihai1710@gmail.com", exact: true })).toBeVisible();
+  await expect(page.locator(".legal-content")).toContainText("contabilul furnizorului pentru emiterea manuală a facturilor");
+  await expect(page.locator(".legal-content")).not.toContainText("Oblio");
   const robots = await request.get("/robots.txt");
   expect(await robots.text()).toContain("Disallow: /account");
   const sitemap = await request.get("/sitemap.xml");
   expect(await sitemap.text()).toContain("https://www.declaut.ro/preturi");
   expect(await sitemap.text()).not.toContain("/account");
+  expect((await request.get("/api/internal/fiscal/retry")).status()).toBe(404);
 });

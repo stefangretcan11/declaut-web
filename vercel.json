@@ -3,6 +3,5 @@
   "framework": "nextjs",
   "regions": ["dub1"],
   "buildCommand": "npm run build",
-  "outputDirectory": null,
-  "crons": [{ "path": "/api/internal/fiscal/retry", "schedule": "0 3 * * *" }]
+  "outputDirectory": null
 }

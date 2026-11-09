@@ -20,7 +20,6 @@ export type InvoiceSnapshot = {
   currency: string;
   amount_paid: number;
   total?: number;
-  fiscal_issue_date?: string;
   buyer?: { name?: string | null; email?: string | null; cui?: string; address?: string; city?: string | null; state?: string | null; country?: string | null };
   stripe_invoice_number: string | null;
   stripe_hosted_invoice_url: string | null;
@@ -41,9 +40,6 @@ export interface BillingStore {
   beginSync(subscriptionId: string): Promise<number>;
   applySync(generation: number, subscription: SubscriptionSnapshot, invoice?: InvoiceSnapshot): Promise<boolean>;
   completeEvent(eventId: string, type: string): Promise<void>;
-  fiscalIssued(invoiceId: string, userId: string): Promise<boolean>;
-  fiscalIssueDate(invoiceId: string, userId: string): Promise<string>;
-  completeFiscal(invoiceId: string, userId: string, number: string, url: string): Promise<boolean>;
 }
 
 export interface StripeGateway {

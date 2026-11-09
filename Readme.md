@@ -1,16 +1,16 @@
 # Declaut website and backend
 
-Next.js App Router and TypeScript on Vercel, with Supabase Auth/Postgres, Ed25519 license signing, Romanian public/account pages and Stripe billing and Oblio fiscal invoicing.
+Next.js App Router and TypeScript on Vercel, with Supabase Auth/Postgres, Ed25519 license signing, Romanian public/account pages and Stripe billing and separate manual fiscal invoicing.
 
-## Status — 8 November 2026
+## Status — 9 November 2026
 
 - Production is `https://www.declaut.ro`. At the owner's request, Supabase project `jdvurtohbypdlvkirnrm` was promoted from staging to production; its Ireland region is unchanged. All migrations through `20261108020000_production_consent_and_fiscal.sql` are applied and recorded, and production Auth redirects are configured.
 - Free supports three firms. Free and Pro permit one active device per account; a second installation receives HTTP 409 without a license. Removal frees the active slot; offline tokens retain their original expiry.
 - The first Pro subscription includes 30 free days with a card upfront, then the full selected 300 RON / six-month or 500 RON / 12-month paid period. Eligibility is checked from customer subscription history.
 - Production code includes commercial consent history, operator/contact details, separate Free/Pro licenses and a matching pinned Ed25519 identity. Prior staging consent does not count as commercial consent.
-- Stripe live checkout is gated on production configuration and explicit fiscal/billing acceptance flags. Oblio integration supports paid RON invoices, provider idempotency, stable issue dates, persisted fiscal documents and authenticated retry. Zero-amount trial invoices do not issue fiscal documents. Portal cancellation and subscription reconciliation are independent of new-sales flags.
-- Production build, 72 application tests, 20 disposable PostgreSQL tests and two public-page Chrome tests pass locally. Remote public HTTP, confirmed-email requirements and production schema checks pass.
-- **Launch remains pending:** the hosted API failed authenticated signature verification against the production JWK. Deploy the matching signing identity and this code, complete real SMTP/Stripe/Oblio acceptance, then enable billing and publish the account-enabled desktop installer. No real payment or fiscal invoice has been created during this work.
+- Stripe live checkout requires production configuration and the explicit `BILLING_LIVE_ENABLED` switch. The accountant issues fiscal invoices separately; webhook reconciliation records payments without calling a fiscal provider. The account explains manual invoicing and preserves historical fiscal documents. No Oblio credentials, fiscal release flag or invoice-retry cron are needed. Portal cancellation and reconciliation remain independent of the new-sales switch.
+- Application, database and browser checks cover license/device policy, Stripe reconciliation, manual-invoicing presentation and production pages. Hosted public HTTP checks pass, and the latest saved authenticated production license acceptance is PASS.
+- Launch still requires actual SMTP/Stripe acceptance, an agreed manual invoicing workflow and a fresh installed desktop test. No real payment or fiscal invoice has been created during this change.
 
 Follow [the production setup guide](docs/production-setup.md). Private configuration and the Vercel import artifact are ignored by Git. `desktopReleaseReady` remains false until acceptance passes.
 
@@ -57,7 +57,7 @@ Staging commands below require an isolated staging project. `npm run check:supab
 - [Track B handoff and distributable public config](docs/track-b-handoff.md)
 - [Production desktop release blockers and public configuration](docs/production-desktop-release.md)
 - [CI, deployment checks and remaining launch inputs](docs/deployment-checklist.md)
-- [Stripe and Oblio integration](docs/billing.md)
+- [Stripe and manual invoicing](docs/billing.md)
 - [Current production setup and remaining acceptance](docs/production-setup.md)
 - [Marketing content and missing launch assets](docs/marketing-content.md)
 - [A1 accounts, production keys, SMTP and A3 acceptance checks](docs/accounts-and-email.md)

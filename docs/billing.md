@@ -1,6 +1,6 @@
 # Stripe billing implementation and test setup
 
-Current state — 8 November 2026: Stripe and Oblio integrations are implemented and fixture-tested. Live checkout requires explicit production/fiscal acceptance gates. Provider credentials are not available in this local checkout; hosted provider configuration has not been inspected. Follow [production setup](production-setup.md). Real Checkout, Portal, fiscal and SPV acceptance remain pending.
+Current state — 9 November 2026: Stripe Checkout, Portal and webhook reconciliation are implemented. Fiscal invoicing is manual and handled separately by the accountant. No invoicing provider, API credentials or fiscal release flag are required. Follow [production setup](production-setup.md) for configuration and acceptance. The owner's hosted Stripe settings are separate from the local helper environment.
 
 ## Plans approved by the owner
 
@@ -19,7 +19,7 @@ Trial eligibility is determined server-side from the bound Stripe customer's sub
 
 Subscription webhook snapshots use `trial_start` and `trial_end` while status is `trialing`, so the account date and signed Pro deadline cannot extend into the later paid period. Active subscriptions use the actual paid item period. Zero-amount trial invoices have `fiscal_status=not_due` after `20261108010000_zero_amount_invoices.sql`; they do not queue a fiscal invoice. Both plans, including Pro trials, allow one active device per account.
 
-Provider acceptance must verify card collection, no initial charge, one-time eligibility, cancellation before charging, automatic first payment after 30 days and the full 6- or 12-month period after that payment. This is pending real Stripe access. Live billing remains disabled until provider acceptance and both release flags are set.
+Provider acceptance must verify card collection, no initial charge, one-time eligibility, cancellation before charging, automatic first payment after 30 days and the full 6- or 12-month period after that payment. This is pending real Stripe access. Live checkout is enabled explicitly with `BILLING_LIVE_ENABLED=true` after payment/email checks and the manual invoicing workflow are ready.
 
 Sources: [Stripe Checkout Session parameters](https://docs.stripe.com/api/checkout/sessions/create), [Stripe trial behavior](https://docs.stripe.com/api/subscriptions/update).
 
@@ -53,7 +53,7 @@ invoice.payment_failed
 5. Use an event/API version matching the locked Stripe SDK. The installed Stripe 23.0.1 SDK uses `2026-09-30.endive`; verify this again when upgrading. Subscription period timestamps are read from the subscription item, not obsolete top-level fields.
 6. Redeploy, then verify actual test-card checkout, portal access, subscription renewal/cancellation, failure grace and webhook replay. This is separate from the tests already run against fixtures.
 
-Keep provider keys server-side. Live checkout requires the pinned production identity, matching supplier CUI, valid Oblio configuration, a dedicated portal, and `FISCAL_LIVE_READY=true` plus `BILLING_LIVE_ENABLED=true`. Checkout also requires the current commercial agreement. Cancellation and reconciliation remain available when new sales are disabled.
+Keep provider keys server-side. Live checkout requires the pinned production identity, both approved live prices, a webhook secret, a dedicated portal and `BILLING_LIVE_ENABLED=true`. Invoicing provider settings and `FISCAL_LIVE_READY` are no longer consulted. Checkout also requires the current commercial agreement. Cancellation and reconciliation remain available when new sales are disabled.
 
 ## HTTP endpoints
 
@@ -77,19 +77,19 @@ Each subscription reconciliation allocates a database generation before retrieva
 
 Only allowlisted price IDs with the approved amounts and intervals set `subscriptions.is_pro=true`. Unexpected or mixed plans retain their actual Stripe status but fail closed for Pro access. Both the account summary and desktop license resolver honor this flag. Manually inserted staging subscription fixtures default to true for Track A/Track B testing.
 
-## Oblio fiscal invoices
+## Manual fiscal invoicing
 
-`billing_invoices` stores the Stripe invoice ID, customer owner, subscription, status, paid amount, currency and safe Stripe document URLs. Owner-only RLS allows users to read their own records, with all writes through the server. The table also reserves separate fields for fiscal issuance state, fiscal number and provider PDF URL.
+`billing_invoices` stores Stripe document IDs, ownership, subscription, paid amount, currency, status and safe Stripe links. The live webhook records the current authoritative payment/subscription state and completes its event without contacting any invoicing service. Database failures remain retryable. Signature verification, event-mode checks, ownership, fencing and idempotency still apply.
 
-A positive paid live RON invoice queues Oblio issuance; zero/unpaid invoices are `not_due`. Live webhook processing retrieves the authoritative invoice and buyer details, then issues with an invoice-scoped Oblio idempotency key and stable issue date. Successful issuance persists the fiscal number and safe provider URL. A failure remains retryable through Stripe and the authenticated daily cron. Test-mode events never issue real invoices.
+The accountant issues fiscal invoices outside the application and communicates them separately. The account labels this explicitly; it does not promise automatic issuance or present legacy pending/failed fiscal states as a live process. Zero-amount records show that no amount was collected. Any existing fiscal number/PDF remains visible, with safe-link validation.
 
-The configured supplier is non-VAT-paying, CUI 26143268, series F, explicit VAT 0. VAT names are discovered from the account nomenclature. Missing Romanian buyer details and amounts differing from the invoice total require review. Oblio SPV auto-send must be configured and verified in the provider account; document creation does not prove ANAF acceptance. Follow the production guide for credentials, retries and acceptance. The account distinguishes Stripe payment documents from fiscal invoices.
+There is no automatic issuance endpoint or cron. No new migration is needed: historical fiscal columns/functions and previously issued documents are retained. Existing `fiscal_status` values are legacy data, not an automatic work queue. The owner must arrange the accountant's access to Stripe payment documents and buyer data using their accounting workflow; this change adds no accountant dashboard or document-upload feature.
 
 ## Verification already performed
 
 - Signed fixture events use the real Stripe SDK signature verifier and dependency-injected handler factories; no payment-provider request is made.
 - Tests cover all six event types, tampered bodies/signatures, duplicate and out-of-order events, slow concurrent fetches, ownership mismatch and unknown prices.
 - Disposable PostgreSQL tests cover customer binding, concurrent checkout reservation, fencing, invoice uniqueness/fiscal-field preservation, RLS and denial of client access to server-only tables/functions.
-- Browser tests against staging cover account plan/renewal display, paid-document/fiscal-pending presentation, one active device on Free and Pro, second-device rejection, device removal and disabled billing endpoints when no Stripe key is configured. Apply all migrations, through the single-device and zero-amount-invoice migrations, before running the updated tests.
+- Browser tests against staging cover account plan/renewal display, payment-document/manual-invoicing presentation, one active device on Free and Pro, second-device rejection, device removal and disabled billing endpoints when no Stripe key is configured. Apply all migrations, through the single-device and zero-amount-invoice migrations, before running the updated tests.
 
 References: [Stripe Checkout subscriptions](https://docs.stripe.com/payments/checkout/build-subscriptions), [webhook signature verification](https://docs.stripe.com/webhooks/signature), [Stripe API idempotency](https://docs.stripe.com/api/idempotent_requests), [subscription lifecycle](https://docs.stripe.com/billing/subscriptions/webhooks).

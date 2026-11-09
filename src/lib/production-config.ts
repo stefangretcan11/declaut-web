@@ -1,19 +1,32 @@
 import production from "../../docs/track-b-production-config.json";
 
 type Env = Record<string, string | undefined>;
+
+function productionUrlMatches(value: string | undefined) {
+  if (!value || !/^https:\/\//i.test(value.trim())) return false;
+  try {
+    const url = new URL(value.trim());
+    return url.origin === production.websiteUrl && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
+  } catch { return false; }
+}
+
 export function isProductionProject(env: Env = process.env) {
   return env.NEXT_PUBLIC_SUPABASE_URL === production.supabaseUrl;
 }
 export function productionSupabaseMatches(env: Env = process.env) {
-  return env.NEXT_PUBLIC_SUPABASE_URL === production.supabaseUrl && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === production.supabasePublishableKey && env.SITE_URL === production.websiteUrl;
+  return env.NEXT_PUBLIC_SUPABASE_URL === production.supabaseUrl && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === production.supabasePublishableKey && productionUrlMatches(env.SITE_URL);
 }
 export function productionSiteMatches(env: Env = process.env) {
-  return env.LICENSE_ISSUER === production.license.issuer && env.SITE_URL === production.websiteUrl;
+  return env.LICENSE_ISSUER === production.license.issuer && productionUrlMatches(env.SITE_URL);
 }
 export function productionConfigIssues(env: Env = process.env): string[] {
   const issues: string[] = [];
+  if (!productionUrlMatches(env.SITE_URL)) {
+    const environment = ["production", "preview", "development"].includes(env.VERCEL_ENV ?? "") ? ` for Vercel ${env.VERCEL_ENV}` : "";
+    issues.push(`SITE_URL: set it to ${production.websiteUrl}${environment}, including https://; save and redeploy`);
+  }
   const expected: Record<string, string | null> = {
-    SITE_URL: production.websiteUrl, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl,
+    NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: production.supabasePublishableKey,
     LICENSE_ISSUER: production.license.issuer, LICENSE_AUDIENCE: production.license.audience,
     LICENSE_KEY_ID: production.license.publicKey.kid,

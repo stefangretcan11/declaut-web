@@ -72,12 +72,12 @@ The owner promoted the existing Supabase project to production for `https://www.
 
 Follow [production setup](production-setup.md):
 
-1. Import the private production environment into Vercel and deploy this code with the matching production signer. Hosted authenticated license acceptance currently fails signature verification.
+1. Import the private production environment into Vercel and deploy this code with the matching production signer. The latest saved authenticated license acceptance passed; preserve the matching signer across redeploys.
 2. Configure/reuse live Stripe prices, dedicated cancellation portal and webhook using the idempotent setup helper. Verify the authorized account and trial/payment behavior.
-3. Configure Oblio credentials, series F, zero VAT nomenclature and SPV. Verify one real authorized invoice and duplicate-event handling; creation does not prove ANAF acceptance.
+3. Agree the manual invoicing workflow with the accountant: access to payment/buyer details, issuance in the accountant’s system and separate delivery to the client. No invoicing API is required.
 4. Configure a verified SMTP sender and commercial templates, then test actual confirmation/reset delivery.
-5. Enable live/fiscal release flags only after provider acceptance, redeploy and run production readiness/license checks. Compile public desktop values only after acceptance passes.
+5. Enable `BILLING_LIVE_ENABLED` only after payment/email acceptance and manual invoicing setup, redeploy and run production readiness/license checks. Compile public desktop values only after acceptance passes.
 
-The real operator, CUI, address, support email and domain are supplied and included in commercial pages. The production signing identity exists locally. These are no longer missing launch inputs. Provider access and actual delivery/payment/fiscal acceptance remain pending; locally missing secrets do not prove what is configured on Vercel.
+The real operator, CUI, address, support email and domain are supplied and included in commercial pages. The production signing identity exists locally. These are no longer missing launch inputs. Actual email/payment acceptance and the manual invoicing handoff remain pending; locally missing secrets do not prove what is configured on Vercel.
 
 Sources: [Next.js type generation](https://nextjs.org/docs/app/api-reference/cli/next#next-typegen-options), [official PostgreSQL Ubuntu packages](https://www.postgresql.org/download/linux/ubuntu/), [PostgreSQL initdb ownership](https://www.postgresql.org/docs/17/app-initdb.html), [GitHub environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).

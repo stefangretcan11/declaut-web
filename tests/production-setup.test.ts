@@ -3,6 +3,32 @@ import { test } from "node:test";
 import Stripe from "stripe";
 import { configureProductionStripe } from "../scripts/configure-production-stripe";
 import { productionAuthConfig } from "../scripts/production-auth-config.mjs";
+import { productionConfigIssues, productionSiteMatches, productionSupabaseMatches } from "../src/lib/production-config";
+import production from "../docs/track-b-production-config.json";
+
+test("Production URL checks accept equivalent root URLs and reject missing schemes, different origins and embedded paths", () => {
+  const env = {
+    SITE_URL: production.websiteUrl, NEXT_PUBLIC_SUPABASE_URL: production.supabaseUrl,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: production.supabasePublishableKey,
+    LICENSE_ISSUER: production.license.issuer, LICENSE_AUDIENCE: production.license.audience,
+    LICENSE_KEY_ID: production.license.publicKey.kid, LICENSE_PRIVATE_KEY_BASE64: "fixture",
+    SUPABASE_SERVICE_ROLE_KEY: "fixture", COMPANY_LEGAL_NAME: "Operator", COMPANY_CUI: "26143268",
+    COMPANY_ADDRESS: "Craiova", CONTACT_EMAIL: "owner@example.test", GITHUB_RELEASE_CHANNEL: "stable",
+    VERCEL_ENV: "preview",
+  };
+  for (const SITE_URL of [production.websiteUrl, `${production.websiteUrl}/`, ` ${production.websiteUrl}/ `, "https://WWW.DECLAUT.RO:443/"]) {
+    const configured = { ...env, SITE_URL };
+    assert.deepEqual(productionConfigIssues(configured), []);
+    assert.equal(productionSupabaseMatches(configured), true);
+    assert.equal(productionSiteMatches(configured), true);
+  }
+  for (const SITE_URL of [undefined, "", "www.declaut.ro", "https://declaut.ro", "http://www.declaut.ro", "https://www.declaut.ro:8443", `${production.websiteUrl}/account`, `${production.websiteUrl}/?next=1`, `${production.websiteUrl}/#account`, "https://user:pass@www.declaut.ro", `"${production.websiteUrl}"`, `SITE_URL=${production.websiteUrl}`]) {
+    const configured = { ...env, SITE_URL };
+    assert.equal(productionSupabaseMatches(configured), false);
+    assert.equal(productionSiteMatches(configured), false);
+    assert.deepEqual(productionConfigIssues(configured), [`SITE_URL: set it to ${production.websiteUrl} for Vercel preview, including https://; save and redeploy`]);
+  }
+});
 
 test("Production auth configuration preserves SMTP by default and permits only the exact production callback URLs", () => {
   const config = productionAuthConfig("https://www.declaut.ro", {});

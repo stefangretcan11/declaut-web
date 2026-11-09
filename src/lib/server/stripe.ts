@@ -46,19 +46,6 @@ export function billingStore(): BillingStore {
     async beginSync(subscriptionId) { const { data, error } = await db.rpc("begin_billing_sync", { p_subscription_id: subscriptionId }); dbError(error); const value = Number(data); if (!Number.isSafeInteger(value) || value < 1) throw new BillingError(503, "billing_database_unavailable"); return value; },
     async applySync(generation, subscription, invoice) { const { data, error } = await db.rpc("apply_billing_sync", { p_generation: generation, p_subscription: subscription, p_invoice: invoice ?? null }); dbError(error); return data === true; },
     async completeEvent(eventId, type) { const { error } = await db.from("billing_webhook_events").upsert({ id: eventId, event_type: type }, { onConflict: "id" }); dbError(error); },
-    async fiscalIssued(invoiceId, userId) {
-      const { data, error } = await db.from("billing_invoices").select("fiscal_status").eq("id", invoiceId).eq("user_id", userId).single();
-      dbError(error); if (!data) throw new BillingError(503, "billing_database_unavailable");
-      return data.fiscal_status === "issued";
-    },
-    async fiscalIssueDate(invoiceId, userId) {
-      const { data, error } = await db.rpc("claim_fiscal_invoice_date", { p_invoice_id: invoiceId, p_user_id: userId });
-      dbError(error); return z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(data);
-    },
-    async completeFiscal(invoiceId, userId, number, url) {
-      const { data, error } = await db.rpc("complete_fiscal_invoice", { p_invoice_id: invoiceId, p_user_id: userId, p_number: number, p_url: url });
-      dbError(error); return data === true;
-    },
   };
 }
 

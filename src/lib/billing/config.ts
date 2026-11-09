@@ -1,4 +1,3 @@
-import { readOblioConfig } from "./oblio";
 import { isProductionProject, productionConfigIssues, productionSiteMatches } from "../production-config";
 
 export type BillingInterval = "semiannual" | "yearly";
@@ -27,15 +26,13 @@ export function billingReadiness(env: Record<string, string | undefined> = proce
   const semiannualConfigured = /^price_[A-Za-z0-9_]+$/.test(env.STRIPE_PRICE_SEMIANNUAL ?? "");
   const yearlyConfigured = /^price_[A-Za-z0-9_]+$/.test(env.STRIPE_PRICE_YEARLY ?? "");
   const distinct = env.STRIPE_PRICE_SEMIANNUAL !== env.STRIPE_PRICE_YEARLY;
-  let fiscalConfigured = false;
-  try { readOblioConfig(env); fiscalConfigured = true; } catch { /* Missing provider configuration keeps live billing disabled. */ }
   const portalConfigured = /^bpc_[A-Za-z0-9]+$/.test(env.STRIPE_PORTAL_CONFIGURATION_ID ?? "");
-  const liveReady = mode === "live" && productionConfigIssues(env).length === 0 && portalConfigured && env.BILLING_LIVE_ENABLED === "true" && env.FISCAL_LIVE_READY === "true" && fiscalConfigured && env.OBLIO_COMPANY_CIF?.replace(/^RO/, "") === env.COMPANY_CUI?.replace(/^RO/, "");
+  const liveReady = mode === "live" && productionConfigIssues(env).length === 0 && portalConfigured && env.BILLING_LIVE_ENABLED === "true";
   const testEnabled = mode === "test" && env.LICENSE_ISSUER !== "declaut-production" && !isProductionProject(env);
   const enabled = testEnabled || liveReady;
   const reconciliationEnabled = testEnabled || (mode === "live" && productionSiteMatches(env));
   const checkoutReady = enabled && semiannualConfigured && yearlyConfigured && distinct && (mode !== "live" || Boolean(env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")));
-  return { checkoutReady, portalReady: reconciliationEnabled && (mode !== "live" || portalConfigured), webhookReady: reconciliationEnabled && semiannualConfigured && yearlyConfigured && distinct && Boolean(env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")), mode, semiannualConfigured, yearlyConfigured, fiscalConfigured, liveReady };
+  return { checkoutReady, portalReady: reconciliationEnabled && (mode !== "live" || portalConfigured), webhookReady: reconciliationEnabled && semiannualConfigured && yearlyConfigured && distinct && Boolean(env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")), mode, semiannualConfigured, yearlyConfigured, liveReady };
 }
 
 export function readBillingConfig(env: Record<string, string | undefined> = process.env, webhook = false, portal = false): BillingConfig {
