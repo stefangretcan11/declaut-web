@@ -1,6 +1,14 @@
 import { z } from "zod";
 
 export const TERMS_VERSION = "2026-10-24-staging";
+export const PRODUCTION_TERMS_VERSION = "2026-11-08-production";
+export function currentTermsVersion(env: Record<string, string | undefined> = process.env) {
+  return env.LICENSE_ISSUER === "declaut-production" ? PRODUCTION_TERMS_VERSION : TERMS_VERSION;
+}
+export function hasCurrentTerms(profile: { terms_version?: string | null; terms_accepted_at?: string | null }, env: Record<string, string | undefined> = process.env) {
+  return profile.terms_version === currentTermsVersion(env) && Number.isFinite(Date.parse(profile.terms_accepted_at ?? ""));
+}
+export const acceptTermsSchema = z.object({ terms: z.preprocess((value) => value === "on" || value === true, z.literal(true, { error: "Acceptă termenii pentru a continua." })) });
 export const passwordSchema = z.string().min(12, "Folosește cel puțin 12 caractere.").max(128, "Folosește cel mult 128 de caractere.");
 const email = z.email("Introdu o adresă de email validă.").max(254).transform((value) => value.toLowerCase());
 const emailField = z.string().trim().pipe(email);

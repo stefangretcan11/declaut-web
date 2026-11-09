@@ -1,5 +1,7 @@
 # A1 accounts, environments and auth email
 
+> **Update — 8 November 2026:** the owner promoted Supabase project `jdvurtohbypdlvkirnrm` to production at `https://www.declaut.ro`. All migrations through `20261108020000_production_consent_and_fiscal.sql` are applied and production Auth redirects are configured. The staging setup and acceptance below are historical. Do not reuse this database for staging fixtures or test-mode billing; configure an isolated staging project first. Use [production setup](production-setup.md) and [the current desktop handoff](production-desktop-release.md) for launch work. Real email/provider acceptance and the hosted production signer remain pending.
+
 ## Current state — 2026-10-24
 
 | Item | State |

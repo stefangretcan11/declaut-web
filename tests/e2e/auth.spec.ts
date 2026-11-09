@@ -17,6 +17,8 @@ let confirmationHash: string;
 let foreignUserId: string | undefined;
 
 test.beforeAll(async () => {
+  const production = JSON.parse(readFileSync("docs/track-b-production-config.json", "utf8"));
+  if (process.env.LICENSE_ISSUER !== "declaut-staging" || url === production.supabaseUrl) throw new Error("Browser auth fixtures require an isolated staging project; the configured project is now production");
   // generateLink creates an unconfirmed signup and a real one-time token without
   // sending email. SMTP delivery is a separate acceptance check once configured.
   const result = await admin.auth.admin.generateLink({ type: "signup", email, password, options: { data: {
@@ -111,7 +113,8 @@ test("Responsive signup, validation, confirmation, login, reset and REST licensi
   await expect(page.locator(".device-rows > li")).toHaveCount(1);
   await expect(page.locator(".device-rows .is-pro")).toHaveCount(1);
   await expect(page.getByText("STRIPE-TEST-001", { exact: true })).toBeVisible();
-  await expect(page.getByText("Factura fiscală: în așteptare", { exact: true })).toBeVisible();
+  await expect(page.getByText("Factura fiscală este gestionată separat.", { exact: true })).toBeVisible();
+  await expect(page.locator(".account-explainer")).toContainText("Facturile fiscale sunt emise manual de contabil");
   if (!process.env.STRIPE_SECRET_KEY) {
     const unavailableCheckout = await context.request.post("/api/checkout", { headers: { Origin: origin }, data: { interval: "semiannual" } });
     expect(unavailableCheckout.status()).toBe(503);

@@ -2,10 +2,10 @@
   "contract": "license-v1-proposed",
   "environment": "production",
   "desktopReleaseReady": false,
-  "websiteUrl": null,
-  "apiBaseUrl": null,
-  "supabaseUrl": null,
-  "supabasePublishableKey": null,
+  "websiteUrl": "https://www.declaut.ro",
+  "apiBaseUrl": "https://www.declaut.ro",
+  "supabaseUrl": "https://jdvurtohbypdlvkirnrm.supabase.co",
+  "supabasePublishableKey": "sb_publishable_eFEQKSWIOOib5ozUMHIEpg_yFD-xliR",
   "verifiedOn": null,
   "license": {
     "issuer": "declaut-production",
@@ -27,6 +27,7 @@
     "proTrialDays": 30,
     "proTrialRequiresCard": true
   },
-  "requiredMigration": "20261108000000_one_device_per_account.sql",
-  "releaseChannel": "stable"
+  "requiredMigration": "20261108020000_production_consent_and_fiscal.sql",
+  "releaseChannel": "stable",
+  "supabaseProjectPromotedFromStaging": true
 }

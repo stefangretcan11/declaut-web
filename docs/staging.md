@@ -1,5 +1,7 @@
 # Staging setup and Track B handoff
 
+> **Update — 8 November 2026:** the owner promoted Supabase project `jdvurtohbypdlvkirnrm` to production at `https://www.declaut.ro`. All migrations through `20261108020000_production_consent_and_fiscal.sql` are applied and production Auth redirects are configured. The staging setup and acceptance below are historical. Do not reuse this database for staging fixtures or test-mode billing; configure an isolated staging project first. Use [production setup](production-setup.md) and [the current desktop handoff](production-desktop-release.md) for launch work. Real email/provider acceptance and the hosted production signer remain pending.
+
 ## Current acceptance — 2026-11-08
 
 The stable `https://declaut-web.vercel.app` origin passed public-page and unauthenticated license-boundary checks. Read-only Supabase auth/schema checks and signed Free licensing with `max_firms: 3` passed. Authenticated acceptance failed at the database policy for the third Pro device, after the first two received Pro. That result predates the one-device policy requested later on 8 November. Apply all migrations through `20261108000000_one_device_per_account.sql` and `20261108010000_zero_amount_invoices.sql`, deploy the updated API and rerun acceptance for one active device on both plans. Temporary test accounts and fixtures were removed; no hosted migrations or deployments were changed. See [the production release handoff](production-desktop-release.md) for the separate installer blockers.

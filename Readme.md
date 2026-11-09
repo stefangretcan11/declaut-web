@@ -1,28 +1,18 @@
 # Declaut website and backend
 
-Next.js App Router and TypeScript on Vercel, with Supabase Auth/Postgres, Ed25519 license signing, Romanian public/account pages and a fixture-tested Stripe sandbox integration.
+Next.js App Router and TypeScript on Vercel, with Supabase Auth/Postgres, Ed25519 license signing, Romanian public/account pages and Stripe billing and separate manual fiscal invoicing.
 
-## Status
+## Status — 9 November 2026
 
-- Romanian home, pricing, download, FAQ and contact pages preserve the minimalist design. Pro prices are 300 RON per six months and 500 RON yearly. Missing release/contact/operator data uses explicit unavailable states; workflow previews are labelled illustrative.
-- The homepage, FAQ and new `/noutati` page reflect desktop changes verified against `accounting-automation` main on 1 November 2026: background scanning, configurable/movable archives, D710 alongside D100, submission history and full errors, and the Excel import template. Update dates describe development changes; installer availability still comes from the configured release feed.
-- `POST /api/license` validates Supabase access tokens, requires confirmed email, registers devices, resolves Free/Pro entitlements and signs licenses with `jose`.
-- Free is limited to three firms, reflected in the pricing, FAQ and account pages and signed Free tokens. Both Free and Pro allow one active device per account. A second PC receives HTTP 409 without a license; removing the active PC frees the slot. Pro's firm-limit claims are unchanged.
-- The database migrations include signup profiles, subscriptions, devices, read-only owner RLS and server-only writes. Device registration and entitlement resolution are atomic per account.
-- The migration was applied to the owner's staging Supabase project through the SQL Editor. A real staging test verified REST login, Free/Pro signatures, the two-device limit, past-due grace, and access restrictions; temporary test data was removed.
-- The staging Ed25519 key pair was generated locally. `.env.local` and `.keys/` are ignored by Git.
-- Romanian signup/login, confirmation/resend, forgot/reset-password pages and a protected account landing page are implemented. Browser sessions use HttpOnly cookies; auth writes enforce same-origin requests.
-- The account page shows plan/renewal, devices with confirmed owner-only removal, payment documents and fiscal issuance status. Removal deletes the registration; a device may register again only while the active slot is free. Previously issued offline tokens remain valid until expiry.
-- First Pro activation includes 30 free days with a card collected upfront, then the selected 300 RON / six-month or 500 RON / yearly period. Stripe customer history prevents repeated trials, and trial licenses expire at the trial deadline.
-- Stripe Checkout/Portal and raw-signature webhook reconciliation are implemented with customer/session reuse, event/invoice idempotency, concurrent-write protection and fail-closed Pro price validation. Live billing remains disabled until fiscal invoicing exists; sandbox provider acceptance still needs a Stripe account.
-- The first four migrations are applied and recorded on staging, including signup consent, billing storage and device removal. Apply all later migrations through `20261108000000_one_device_per_account.sql` and `20261108010000_zero_amount_invoices.sql` before deploying this update. All tables use RLS; browser clients cannot write subscription, invoice or device rows.
-- TypeScript, the production build, application/Stripe fixture tests and PostgreSQL behavior tests pass. Public-page Chrome acceptance is separate from auth acceptance. The updated one-device auth acceptance requires the new hosted migrations; real Stripe trial/checkout acceptance remains pending provider setup. Earlier auth browser checks used admin-generated email links without sending mail.
+- Production is `https://www.declaut.ro`. At the owner's request, Supabase project `jdvurtohbypdlvkirnrm` was promoted from staging to production; its Ireland region is unchanged. All migrations through `20261108020000_production_consent_and_fiscal.sql` are applied and recorded, and production Auth redirects are configured.
+- Free supports three firms. Free and Pro permit one active device per account; a second installation receives HTTP 409 without a license. Removal frees the active slot; offline tokens retain their original expiry.
+- The first Pro subscription includes 30 free days with a card upfront, then the full selected 300 RON / six-month or 500 RON / 12-month paid period. Eligibility is checked from customer subscription history.
+- Production code includes commercial consent history, operator/contact details, separate Free/Pro licenses and a matching pinned Ed25519 identity. Prior staging consent does not count as commercial consent.
+- Stripe live checkout requires production configuration and the explicit `BILLING_LIVE_ENABLED` switch. The accountant issues fiscal invoices separately; webhook reconciliation records payments without calling a fiscal provider. The account explains manual invoicing and preserves historical fiscal documents. No Oblio credentials, fiscal release flag or invoice-retry cron are needed. Portal cancellation and reconciliation remain independent of the new-sales switch.
+- Application, database and browser checks cover license/device policy, Stripe reconciliation, manual-invoicing presentation and production pages. Hosted public HTTP checks pass, and the latest saved authenticated production license acceptance is PASS.
+- Launch still requires actual SMTP/Stripe acceptance, an agreed manual invoicing workflow and a fresh installed desktop test. No real payment or fiscal invoice has been created during this change.
 
-The initial manually applied migration is recorded in Supabase history; the later migrations were deployed using `supabase db push`. Future changes should use new migrations; do not rerun the initial SQL.
-
-The hosted API at https://declaut-f7vs3twun-declaut.vercel.app was verified against staging Supabase on 2026-10-24. Free/Pro signatures, device limits, payment grace, invalid-token rejection and subscription write restrictions passed; temporary fixtures were removed. This is a deployment-specific URL; select a stable staging domain for Track B before ongoing integration.
-
-The API contract is proposed until Track B agrees to it. Track B supplied `mihaicostache1/declaut-release`; release metadata is resolved from the configured GitHub feed and the `declaut-setup.exe` asset. Staging may opt into previews; production uses the stable feed. Set the documented GitHub environment variables on Vercel before deploying. The new frontend and billing routes still need deployment. Actual inbox delivery, Stripe sandbox checkout/portal/webhook delivery, fiscal invoicing, real desktop screenshots, operator/contact details and final commercial legal content remain pending external inputs. The existing Supabase project stays in Ireland (`eu-west-1`); `vercel.json` selects Dublin (`dub1`) for backend functions. Use Ireland for the future production database too. Production keys are generated separately; production infrastructure and provider accounts remain pending. See [the deployment checklist](docs/deployment-checklist.md).
+Follow [the production setup guide](docs/production-setup.md). Private configuration and the Vercel import artifact are ignored by Git. `desktopReleaseReady` remains false until acceptance passes.
 
 ## Local development
 
@@ -32,7 +22,7 @@ Use Node.js 22 or later and npm.
 npm ci
 ```
 
-For a new checkout, copy `.env.example` to `.env.local` and fill in the staging Supabase URL, publishable key and server key. On the existing checkout, preserve the configured `.env.local`.
+For staging development, use an isolated Supabase project and matching public handoff. The old `.env.local` points at the project now promoted to production; staging helpers intentionally reject it. Do not create staging/demo fixtures in the customer database. For production configuration use the separate ignored `.env.declaut-production.local` and the production setup guide.
 
 For a new environment only, generate the signing key with `npm run keys:generate`. This writes an ignored private/public key pair and updates `.env.local`. It refuses to replace an existing key. For production, use `npm run keys:generate -- production`; this writes separate keys and `.env.declaut-production.local`. That file is deliberately outside Next.js's automatically loaded environment filenames so a staging build cannot accidentally use the production signing identity.
 
@@ -42,7 +32,7 @@ npm run dev
 
 Open http://localhost:3000. The API uses the Node.js runtime. Keep `SUPABASE_SERVICE_ROLE_KEY` and `LICENSE_PRIVATE_KEY_BASE64` server-only; never prefix them with `NEXT_PUBLIC_`.
 
-For manual account preview, `npm run demo:create` creates a confirmed staging-only account and verifies REST sign-in/profile access. Its generated email/password are saved in ignored `.env.demo.local`; the account remains available until you remove it in Supabase Auth. An account has been created on this checkout. Run `npm run dev`, open http://localhost:3000/login, and use those credentials. The demo address is not an inbox; use a real address you own for email-delivery testing after SMTP setup.
+The old staging/demo credentials are historical. Create new demo accounts only after configuring an isolated staging environment. Use a real inbox you own for email-delivery acceptance.
 
 ## Verification
 
@@ -58,7 +48,7 @@ npm run test:auth
 
 `test:auth` requires Google Chrome. It starts the local production build on port 3100 and tests auth/account/device behavior against staging plus responsive public pages. It removes temporary accounts/subscriptions/devices/payment records afterward. It uses admin-generated one-time tokens and does not verify inbox delivery. Screenshots are saved in ignored `.artifacts/`. Ordinary GitHub CI needs no hosted credentials; staging browser acceptance is an optional manual trusted-branch workflow.
 
-`npm run check:supabase` performs read-only credential, auth-setting and schema checks. To test the full endpoint, start `npm run start -- --hostname 127.0.0.1 --port 3100` after building, then run `npm run test:staging` in another terminal. That test creates a temporary confirmed account and subscription in the configured project, verifies license issuance and removes its fixtures. It does not verify email delivery.
+Staging commands below require an isolated staging project. `npm run check:supabase` performs read-only credential, auth-setting and schema checks. To test the full endpoint, start `npm run start -- --hostname 127.0.0.1 --port 3100` after building, then run `npm run test:staging` in another terminal. That test creates a temporary confirmed account and subscription in the configured project, verifies license issuance and removes its fixtures. It does not verify email delivery.
 
 ## Integration and deployment
 
@@ -67,7 +57,8 @@ npm run test:auth
 - [Track B handoff and distributable public config](docs/track-b-handoff.md)
 - [Production desktop release blockers and public configuration](docs/production-desktop-release.md)
 - [CI, deployment checks and remaining launch inputs](docs/deployment-checklist.md)
-- [Stripe integration and sandbox setup](docs/billing.md)
+- [Stripe and manual invoicing](docs/billing.md)
+- [Current production setup and remaining acceptance](docs/production-setup.md)
 - [Marketing content and missing launch assets](docs/marketing-content.md)
 - [A1 accounts, production keys, SMTP and A3 acceptance checks](docs/accounts-and-email.md)
 - [Frontend direction and Apple HIG references](docs/frontend.md)

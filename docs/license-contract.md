@@ -120,6 +120,7 @@ Successful results are cached for one hour with Next.js fetch caching and an ins
 | 401 | `unauthorized` | Refresh the Supabase session or ask the user to sign in. |
 | 409 | `device_limit_reached` | Block activation; remove the active PC from the account before switching. |
 | 403 | `email_confirmation_required` | Ask the user to confirm their email. |
+| 403 | `terms_acceptance_required` | Open `https://www.declaut.ro/account` for commercial terms acceptance, then retry. No device slot is reserved. |
 | 413 | `request_too_large` | Send a smaller request. |
 | 415 | `unsupported_media_type` | Send JSON with `Content-Type: application/json`. |
 | 503 | `auth_unavailable`, `database_unavailable`, `license_unavailable` | Retry with backoff; honor `Retry-After`. Preserve an existing unexpired license. |

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { TERMS_VERSION } from "@/lib/auth/validation";
+import { getSiteConfig } from "@/lib/site-config";
+import { ProductionLegal } from "@/components/production-legal";
 
 export default function StagingTerms() {
+  if (!getSiteConfig().isStaging) return <ProductionLegal />;
   return <main className="site-shell"><header className="site-header"><Link className="wordmark" href="/">declaut<span>.</span></Link><span className="environment-label">Mediu de testare</span></header>
     <article className="legal-content"><p className="eyebrow">TESTARE</p><h1>Termenii mediului de testare</h1><p>Versiune: {TERMS_VERSION}</p>
       <p>Acest site este mediul de testare Declaut. Conturile create aici sunt folosite pentru verificarea autentificării și a licențelor aplicației.</p>

@@ -1,8 +1,8 @@
 import Stripe from "stripe";
-import { PRO_TRIAL_DAYS, type BillingConfig } from "./config";
+import { PRO_TRIAL_DAYS, STRIPE_API_VERSION, type BillingConfig } from "./config";
 import type { StripeEvent, StripeGateway } from "./types";
 
-export function createStripeGateway(config: BillingConfig, stripe = new Stripe(config.secretKey, { maxNetworkRetries: 2, timeout: 15000 })): StripeGateway {
+export function createStripeGateway(config: BillingConfig, stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION, maxNetworkRetries: 2, timeout: 15000 })): StripeGateway {
   return {
     price: (id) => stripe.prices.retrieve(id),
     customer: (id) => stripe.customers.retrieve(id),
@@ -16,7 +16,7 @@ export function createStripeGateway(config: BillingConfig, stripe = new Stripe(c
       // Leave room for network latency above Stripe's 30-minute minimum.
       locale: "ro", expires_at: Math.floor(Date.now() / 1000) + 3600,
     }, { idempotencyKey }),
-    createPortal: (customerId, origin) => stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${origin}/account`, locale: "ro" }),
+    createPortal: (customerId, origin) => stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${origin}/account`, locale: "ro", configuration: config.portalConfigurationId }),
     subscription: (id) => stripe.subscriptions.retrieve(id),
     checkout: (id) => stripe.checkout.sessions.retrieve(id),
     invoice: (id) => stripe.invoices.retrieve(id),

@@ -103,6 +103,25 @@ test("Signup records consent with a server timestamp and never invents legacy co
   assert.equal((await admin.query("select terms_accepted_at from public.profiles where id = $1", [invalidVersion])).rows[0].terms_accepted_at, null);
 });
 
+test("Production agreement acceptance preserves staging history, is idempotent and cannot be forged through a browser database role", async () => {
+  const user = randomUUID();
+  await admin.query("insert into auth.users(id,email,raw_user_meta_data) values($1,'production-consent@example.test',$2)", [user, { terms_accepted: true, terms_version: "2026-10-24-staging" }]);
+  await admin.query("select public.accept_account_terms($1,'2026-11-08-production')", [user]);
+  const first = (await admin.query("select terms_version,terms_accepted_at from public.profiles where id=$1", [user])).rows[0];
+  assert.equal(first.terms_version, "2026-11-08-production");
+  await admin.query("select public.accept_account_terms($1,'2026-11-08-production')", [user]);
+  assert.equal((await admin.query("select terms_accepted_at from public.profiles where id=$1", [user])).rows[0].terms_accepted_at.getTime(), first.terms_accepted_at.getTime());
+  assert.equal((await admin.query("select version from public.account_consents where user_id=$1", [user])).rowCount, 2);
+  assert.equal((await admin.query("select version from public.account_consents where user_id=$1", [backfilledId])).rowCount, 0);
+  await assert.rejects(admin.query("select public.accept_account_terms($1,'unknown')", [user]), /Unknown terms/);
+  const client = await session("authenticated", user);
+  try {
+    assert.equal((await client.query("select user_id from public.account_consents")).rows.every((row) => row.user_id === user), true);
+    await assert.rejects(client.query("select public.accept_account_terms($1,'2026-11-08-production')", [user]), /permission denied/);
+    await assert.rejects(client.query("delete from public.account_consents"), /permission denied/);
+  } finally { await client.end(); }
+});
+
 test("RLS restricts all three tables to their owner; client writes and RPC are denied", async () => {
   const owner = await newUser();
   const other = await newUser();

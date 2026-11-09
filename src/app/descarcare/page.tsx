@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingShell, PageHeading } from "@/components/marketing/shell";
 import { createReleaseReader, releaseOptions } from "@/lib/releases";
+import { getSiteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = { title: "Descarcă pentru Windows — Declaut", description: "Descarcă versiunea publică Declaut pentru Windows 10 și Windows 11 atunci când este disponibilă." };
 export const revalidate = 3600;
@@ -16,6 +17,6 @@ export default async function Download() {
     {available && options.includePrereleases && <p className="marketing-release-channel">Canal de testare: această descărcare poate fi o versiune preliminară, destinată verificării înainte de lansarea stabilă.</p>}
     <p className="marketing-updates-availability">Urmărește evoluția aplicației pe pagina <Link href="/noutati">Noutăți</Link>. Funcțiile descrise acolo pot apărea într-o versiune ulterioară celei disponibile pentru descărcare.</p>
     <section className="marketing-download-steps" aria-labelledby="install-title"><h2 id="install-title">{available ? "Începi în trei pași." : "Când versiunea este disponibilă."}</h2><ol data-motion-group><li><span>01</span><div><h3>Descarcă instalatorul.</h3><p>Folosește linkul de pe această pagină pentru versiunea disponibilă.</p></div></li><li><span>02</span><div><h3>Instalează pe Windows.</h3><p>Urmează instrucțiunile instalatorului pe Windows 10 sau 11.</p></div></li><li><span>03</span><div><h3>Intră în contul Declaut.</h3><p>Folosește aceeași adresă de email și parolă ca pe site.</p></div></li></ol></section>
-    <div className="marketing-download-help"><p>Nu ai încă un cont?</p><Link href="/signup">Creează un cont de test <span aria-hidden="true">↗</span></Link></div>
+    <div className="marketing-download-help"><p>Nu ai încă un cont?</p><Link href="/signup">{getSiteConfig().isStaging ? "Creează un cont de test" : "Creează un cont"} <span aria-hidden="true">↗</span></Link></div>
   </MarketingShell>;
 }

@@ -30,7 +30,7 @@ export function createWebhookHandler(deps: { config(): BillingConfig; stripe(con
       let event;
       try { event = eventSchema.parse(stripe.event(Buffer.concat(chunks).toString("utf8"), signature, config.webhookSecret)); }
       catch { throw new BillingError(400, "invalid_signature"); }
-      if (event.livemode) throw new BillingError(400, "billing_mode_mismatch");
+      if (event.livemode !== (config.mode === "live")) throw new BillingError(400, "billing_mode_mismatch");
       if (!supported.has(event.type)) return Response.json({ received: true, ignored: true });
       const store = deps.store();
       if (await store.eventProcessed(event.id)) return Response.json({ received: true, duplicate: true });
@@ -65,6 +65,8 @@ export function createWebhookHandler(deps: { config(): BillingConfig; stripe(con
       if (!owner) return Response.json({ received: true, ignored: true });
       if ((checkoutOwner && checkoutOwner !== owner) || (checkoutCustomer && checkoutCustomer !== snapshot.customer_id) || (invoice && invoice.customer_id !== snapshot.customer_id)) throw new BillingError(400, "billing_customer_mismatch");
       if (!await store.applySync(generation, snapshot, invoice)) throw new BillingError(503, "billing_sync_in_progress");
+      // The accountant issues fiscal invoices separately. Reconciliation records
+      // the payment and entitlement without calling an invoicing provider.
       await store.completeEvent(event.id, event.type);
       return Response.json({ received: true });
     } catch (error) {

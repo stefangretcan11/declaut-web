@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { confirmSchema, passwordSchema, requestOrigin, resetSchema, safeAuthDestination, signupSchema, siteOrigin, trustedOrigin } from "../src/lib/auth/validation";
+import { acceptTermsSchema, confirmSchema, currentTermsVersion, hasCurrentTerms, passwordSchema, PRODUCTION_TERMS_VERSION, requestOrigin, resetSchema, safeAuthDestination, signupSchema, siteOrigin, trustedOrigin } from "../src/lib/auth/validation";
 
 test("Signup normalizes email and CUI, requires company details and explicit terms", () => {
   const valid = { email: " Owner@Example.com ", password: "a long strong password", company_name: " Test SRL ", cui: " ro 123456 ", terms: "on" };
@@ -12,6 +12,16 @@ test("Signup normalizes email and CUI, requires company details and explicit ter
   assert.equal(signupSchema.safeParse({ ...valid, terms: "false" }).success, false);
   assert.equal(signupSchema.safeParse({ ...valid, company_name: "" }).success, false);
   assert.equal(signupSchema.safeParse({ ...valid, cui: "<script>" }).success, false);
+});
+
+test("Production requires its own explicit agreement and never treats staging consent as production consent", () => {
+  const env = { LICENSE_ISSUER: "declaut-production" };
+  assert.equal(currentTermsVersion(env), PRODUCTION_TERMS_VERSION);
+  assert.equal(hasCurrentTerms({ terms_version: "2026-10-24-staging", terms_accepted_at: "2026-10-24T12:00:00Z" }, env), false);
+  assert.equal(hasCurrentTerms({ terms_version: PRODUCTION_TERMS_VERSION, terms_accepted_at: "2026-11-08T12:00:00Z" }, env), true);
+  assert.equal(hasCurrentTerms({ terms_version: PRODUCTION_TERMS_VERSION }, env), false);
+  assert.equal(acceptTermsSchema.safeParse({ terms: false }).success, false);
+  assert.equal(acceptTermsSchema.safeParse({ terms: "on" }).success, true);
 });
 
 test("Reset validates both passwords without trimming password characters", () => {

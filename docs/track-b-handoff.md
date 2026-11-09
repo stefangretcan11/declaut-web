@@ -1,5 +1,7 @@
 # Track B staging handoff
 
+> **Update — 8 November 2026:** the owner promoted Supabase project `jdvurtohbypdlvkirnrm` to production at `https://www.declaut.ro`. All migrations through `20261108020000_production_consent_and_fiscal.sql` are applied and production Auth redirects are configured. The staging setup and acceptance below are historical. Do not reuse this database for staging fixtures or test-mode billing; configure an isolated staging project first. Use [production setup](production-setup.md) and [the current desktop handoff](production-desktop-release.md) for launch work. Real email/provider acceptance and the hosted production signer remain pending.
+
 For the installer release, use [the production desktop release handoff](production-desktop-release.md) and its separate public configuration. Staging values must not be compiled into the desktop production block.
 
 This handoff describes **license-v1-proposed**. The backend implements it; Track B still needs to agree to the request/response fields, claims, refresh schedule and offline/device-removal behavior before shipping the desktop integration.
