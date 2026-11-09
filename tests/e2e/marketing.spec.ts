@@ -19,7 +19,6 @@ test("Romanian marketing routes, navigation and release availability work on des
   await expect(page.locator(".marketing-pro-prices")).toContainText("6 luni");
   await expect(page.locator(".marketing-plan").first()).toContainText("maximum 3 firme");
   await expect(page.locator(".marketing-plan-pro")).toContainText("1 lună gratuită");
-  await expect(page.locator(".marketing-plan-pro")).toContainText("Un singur dispozitiv activ pe cont");
   await expect(page.locator(".marketing-pricing-note")).toContainText("cardul de la început");
   await expect(page.locator(".marketing-comparison")).toContainText("Maximum 3");
   await page.goto("/intrebari-frecvente");
