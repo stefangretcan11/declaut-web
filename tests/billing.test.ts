@@ -133,6 +133,28 @@ test("Live checkout supports manual invoicing without provider credentials or a 
   for (const override of [{ LICENSE_ISSUER: "declaut-staging" }, { SITE_URL: "https://wrong.example" }, { GITHUB_RELEASE_CHANNEL: "preview" }, { STRIPE_WEBHOOK_SECRET: "" }, { STRIPE_PORTAL_CONFIGURATION_ID: "" }, { STRIPE_PRICE_YEARLY: "price_a" }]) assert.equal(billingReadiness({ ...env, ...override }).checkoutReady, false);
 });
 
+test("Unavailable webhook configuration logs the exact failed fields without secret values", () => {
+  const env = { STRIPE_SECRET_KEY: "rk_live_private_key_marker", STRIPE_WEBHOOK_SECRET: "whsec_private_secret_marker", STRIPE_PRICE_SEMIANNUAL: "price_semiannual_fixture", STRIPE_PRICE_YEARLY: "price_yearly_fixture", SITE_URL: production.websiteUrl, LICENSE_ISSUER: production.license.issuer };
+  const originalError = console.error;
+  const logs: unknown[][] = [];
+  console.error = (...args: unknown[]) => { logs.push(args); };
+  try {
+    for (const [field, value] of [["STRIPE_PRICE_YEARLY", "price_yearly_fixture "], ["STRIPE_WEBHOOK_SECRET", "whsec_private_secret_marker".replace("whsec_", "invalid_secret_")], ["STRIPE_SECRET_KEY", "invalid_private_key_marker"], ["LICENSE_ISSUER", "wrong_issuer"], ["SITE_URL", "https://wrong.example"]]) {
+      assert.throws(() => readBillingConfig({ ...env, [field]: value }, true), BillingError);
+      const entry = logs.at(-1)!;
+      assert.equal(entry[0], "[billing] Configuration unavailable");
+      const details = entry[1] as { action: string; invalidFields: string[] };
+      assert.equal(details.action, "webhook");
+      assert.deepEqual(details.invalidFields, [field]);
+    }
+    assert.throws(() => readBillingConfig({ ...env, STRIPE_PRICE_YEARLY: env.STRIPE_PRICE_SEMIANNUAL }, true), BillingError);
+    assert.deepEqual((logs.at(-1)![1] as { invalidFields: string[] }).invalidFields, ["STRIPE_PRICE_YEARLY must differ from STRIPE_PRICE_SEMIANNUAL"]);
+    assert.equal(readBillingConfig(env, true).mode, "live");
+    assert.equal(logs.length, 6);
+    assert.doesNotMatch(JSON.stringify(logs), /private_key_marker|private_secret_marker|price_semiannual_fixture|price_yearly_fixture|wrong_issuer|wrong\.example/);
+  } finally { console.error = originalError; }
+});
+
 test("Live checkout requires production terms acceptance but existing customers can still open the cancellation portal", async () => {
   const store = new MemoryStore(); store.profile.stripe_customer_id = "cus_fixture";
   const deps = { authenticate: async () => ({ id: userId, email: "fixture@example.invalid" }), config: () => ({ ...config, mode: "live" as const }), store: () => store, stripe: () => gateway() };
