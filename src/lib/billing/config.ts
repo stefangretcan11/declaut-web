@@ -42,7 +42,31 @@ export function billingReadiness(env: Record<string, string | undefined> = proce
 
 export function readBillingConfig(env: Record<string, string | undefined> = process.env, webhook = false, portal = false): BillingConfig {
   const readiness = billingReadiness(env);
-  if (!(webhook ? readiness.webhookReady : portal ? readiness.portalReady : readiness.checkoutReady)) throw new BillingError(503, "billing_unavailable");
+  if (!(webhook ? readiness.webhookReady : portal ? readiness.portalReady : readiness.checkoutReady)) {
+    const invalidFields: string[] = [];
+    const mode = readiness.mode;
+    if (mode === "unconfigured" || (mode === "test" && (env.LICENSE_ISSUER === "declaut-production" || isProductionProject(env)))) invalidFields.push("STRIPE_SECRET_KEY");
+    if (mode === "live") {
+      if (env.LICENSE_ISSUER !== "declaut-production") invalidFields.push("LICENSE_ISSUER");
+      if (!productionSiteMatches({ ...env, LICENSE_ISSUER: "declaut-production" })) invalidFields.push("SITE_URL");
+    }
+    if (webhook || !portal) {
+      if (!readiness.semiannualConfigured) invalidFields.push("STRIPE_PRICE_SEMIANNUAL");
+      if (!readiness.yearlyConfigured) invalidFields.push("STRIPE_PRICE_YEARLY");
+      if (env.STRIPE_PRICE_SEMIANNUAL === env.STRIPE_PRICE_YEARLY) invalidFields.push("STRIPE_PRICE_YEARLY must differ from STRIPE_PRICE_SEMIANNUAL");
+    }
+    if ((webhook || (!portal && mode === "live")) && !env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")) invalidFields.push("STRIPE_WEBHOOK_SECRET");
+    if (!webhook && mode === "live") {
+      if (!/^bpc_[A-Za-z0-9]+$/.test(env.STRIPE_PORTAL_CONFIGURATION_ID ?? "")) invalidFields.push("STRIPE_PORTAL_CONFIGURATION_ID");
+      if (!portal) {
+        if (env.BILLING_LIVE_ENABLED !== "true") invalidFields.push("BILLING_LIVE_ENABLED");
+        invalidFields.push(...productionConfigIssues(env).map((issue) => issue.split(":", 1)[0]));
+      }
+    }
+    // Only fixed field names and the key mode reach server logs; values remain private.
+    console.error("[billing] Configuration unavailable", { action: webhook ? "webhook" : portal ? "portal" : "checkout", mode, invalidFields: [...new Set(invalidFields)] });
+    throw new BillingError(503, "billing_unavailable");
+  }
   return {
     secretKey: env.STRIPE_SECRET_KEY!.trim(),
     webhookSecret: env.STRIPE_WEBHOOK_SECRET?.trim(),
