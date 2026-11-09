@@ -55,6 +55,8 @@ invoice.payment_failed
 
 Keep provider keys server-side. Live checkout requires the pinned production identity, both approved live prices, a webhook secret, a dedicated portal and `BILLING_LIVE_ENABLED=true`. Invoicing provider settings and `FISCAL_LIVE_READY` are no longer consulted. Checkout also requires the current commercial agreement. Cancellation and reconciliation remain available when new sales are disabled.
 
+`STRIPE_SECRET_KEY` accepts secret (`sk_live_…`, `sk_test_…`) and restricted (`rk_live_…`, `rk_test_…`) server keys. Restricted keys must permit the actual API calls: reading prices, customers, subscriptions, Checkout sessions and invoices; creating/updating customers and creating Checkout/Portal sessions. Provisioning and remote inspection also need access to the products, prices, portal configurations, account and webhook endpoints they manage or inspect. Restricted test keys remain blocked against the production database. Publishable (`pk_…`) and organization keys are not accepted by this account-scoped integration. See [Stripe API keys](https://docs.stripe.com/keys).
+
 ## HTTP endpoints
 
 `POST /api/checkout` accepts JSON or a form with `interval=semiannual` or `interval=yearly`. It requires a confirmed cookie-authenticated user and a matching browser Origin. The server chooses the price ID; a caller-supplied arbitrary price is rejected. Checkout uses subscription mode, requires the billing address and enables tax ID collection. Success returns to `/account?paid=1`; the account never grants Pro based on that query parameter.

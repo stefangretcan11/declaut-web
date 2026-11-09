@@ -2,7 +2,7 @@ import { createPrivateKey, createPublicKey } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { productionConfigIssues } from "../src/lib/production-config";
-import { billingReadiness, STRIPE_API_VERSION } from "../src/lib/billing/config";
+import { billingReadiness, STRIPE_API_VERSION, stripeKeyMode } from "../src/lib/billing/config";
 import { validPrice } from "../src/lib/billing/snapshots";
 import production from "../docs/track-b-production-config.json";
 import { checkDeployment } from "./check-deployment.mjs";
@@ -22,7 +22,7 @@ async function main() {
   } catch { add("Production signing key matches the desktop JWK", false); }
   for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_SEMIANNUAL", "STRIPE_PRICE_YEARLY", "STRIPE_PORTAL_CONFIGURATION_ID"]) add(name, Boolean(env[name]?.trim()), env[name]?.trim() ? undefined : "missing server configuration");
   console.log("Fiscal invoices are handled separately by the accountant; no invoicing provider is required.");
-  add("Stripe key is live mode", env.STRIPE_SECRET_KEY?.startsWith("sk_live_") === true);
+  add("Stripe key is live mode", stripeKeyMode(env.STRIPE_SECRET_KEY) === "live");
   add("Live checkout enabled after provider acceptance", billingReadiness(env).checkoutReady);
 
   if (process.argv.includes("--remote")) {
@@ -39,9 +39,9 @@ async function main() {
         add(`Production schema ${table}`, !error, error ? "apply the committed migrations" : undefined);
       }
     }
-    if (env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) {
+    if (stripeKeyMode(env.STRIPE_SECRET_KEY) === "live") {
       try {
-        const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION, timeout: 10_000, maxNetworkRetries: 0 });
+        const stripe = new Stripe(env.STRIPE_SECRET_KEY!.trim(), { apiVersion: STRIPE_API_VERSION, timeout: 10_000, maxNetworkRetries: 0 });
         const account = await stripe.accounts.retrieve(null);
         add("Stripe account can charge and pay out", account.charges_enabled === true && account.payouts_enabled === true && account.details_submitted === true);
         for (const [interval, name] of [["semiannual", "STRIPE_PRICE_SEMIANNUAL"], ["yearly", "STRIPE_PRICE_YEARLY"]] as const) {
