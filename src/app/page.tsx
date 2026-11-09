@@ -4,7 +4,6 @@ import { AccountCallout, MarketingShell } from "@/components/marketing/shell";
 import { MatrixPreview } from "@/components/marketing/workflow-previews";
 import { WorkflowStory } from "@/components/marketing/workflow-story";
 import { WorkflowFallback } from "@/components/marketing/workflow-fallback";
-import { productUpdates } from "@/lib/product-updates";
 import { getSiteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -18,13 +17,6 @@ export default function Home() {
     <section className="marketing-intro" data-motion-group id="cum-functioneaza" aria-labelledby="workflow-title"><p className="eyebrow">UN FLUX CLAR</p><div><h2 id="workflow-title">Vezi ce ai de făcut.<br />Știi unde ai ajuns.</h2><p>Declaut aduce împreună cele trei momente ale lucrului cu declarațiile: organizarea, încărcarea și verificarea rezultatului.</p></div></section>
     <WorkflowStory><WorkflowFallback /></WorkflowStory>
     <section className="marketing-context-note" data-motion-group><p>Ilustrațiile de mai sus explică fluxul propus. Nu sunt capturi din aplicația publicată; interfața poate diferi în funcție de versiunea instalată.</p><Link href="/intrebari-frecvente">Întrebări înainte să începi <span aria-hidden="true">↗</span></Link></section>
-    <section className="marketing-latest-updates" aria-labelledby="updates-title">
-      <div className="marketing-updates-heading" data-motion-group><div><p className="eyebrow">NOU ÎN DECLAUT</p><h2 id="updates-title">Mai multă ordine.<br />Mai puțini pași.</h2></div><Link className="marketing-text-link" href="/noutati">Vezi toate noutățile <span aria-hidden="true">↗</span></Link></div>
-      <div className="marketing-update-grid" data-motion-group>{productUpdates.slice(0, 3).map((update) => <article className="marketing-update-card" key={update.id}>
-        <time dateTime={update.date}>{update.dateLabel}</time><h3><Link href={`/noutati#${update.id}`}>{update.title}</Link></h3><p>{update.summary}</p>
-      </article>)}</div>
-      <p className="marketing-updates-availability">Noutăți din dezvoltarea aplicației. Funcțiile disponibile depind de versiunea instalată.</p>
-    </section>
     <AccountCallout />
   </MarketingShell>;
 }
