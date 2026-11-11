@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="526" height="489" viewBox="0 0 526 489" role="img" aria-labelledby="title description">
+  <title id="title">Pasul 2: Run anyway</title>
+  <desc id="description">Ilustrație Windows SmartScreen după More info. Aplicația este declaut-setup.exe, editorul afișat include Mihai Costache, iar butonul Run anyway din partea de jos este încadrat cu galben.</desc>
+  <rect width="526" height="489" rx="3" fill="#535598"/>
+  <path d="M482 0h44v33h-44z" fill="#fff"/>
+  <path d="m500 12 9 10m0-10-9 10" fill="none" stroke="#111"/>
+  <g fill="#fff" font-family="Segoe UI, Arial, sans-serif">
+    <text x="20" y="50" font-size="28">Windows protected your PC</text>
+    <text x="20" y="93" font-size="14">Microsoft Defender SmartScreen prevented an unrecognized app from</text>
+    <text x="20" y="114" font-size="14">starting. Running this app might put your PC at risk.</text>
+    <text x="20" y="147" font-size="14">App:</text>
+    <text x="89" y="147" font-size="14">declaut-setup.exe</text>
+    <text x="20" y="171" font-size="14">Publisher:</text>
+    <text x="89" y="171" font-size="14">RO, Craiova, Mihai Costache, Mihai Costache</text>
+  </g>
+  <rect x="278" y="439" width="109" height="35" fill="#fff"/>
+  <rect x="407" y="439" width="94" height="35" fill="#fff"/>
+  <g fill="#111" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle">
+    <text x="332.5" y="462">Run anyway</text>
+    <text x="454" y="462">Don’t run</text>
+  </g>
+  <rect x="272" y="433" width="121" height="47" rx="3" fill="none" stroke="#ffe58b" stroke-width="3"/>
+  <path d="M332 399v22m-7-8 7 8 7-8" fill="none" stroke="#ffe58b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

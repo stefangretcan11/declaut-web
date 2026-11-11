@@ -191,6 +191,36 @@
 .marketing-download-steps li > span { display: block; margin-bottom: 22px; color: #7e9273; font-size: 11px; }
 .marketing-download-steps h3 { font-size: 17px; }
 .marketing-download-steps p { max-width: 250px; font-size: 13px; line-height: 1.9; color: #718169; margin: 12px 0 0; }
+.marketing-installation-shortcut { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 14px; font-size: 12px; line-height: 1.7; }
+.marketing-installation-shortcut > span { flex-shrink: 0; }
+.marketing-site .marketing-installation-help { padding: 42px 0 38px; border-top: 1px solid #d8dfd5; scroll-margin-top: 28px; }
+.marketing-installation-heading { max-width: 760px; }
+.marketing-installation-heading .eyebrow { margin-bottom: 17px; }
+.marketing-installation-heading h2 { font-size: clamp(27px, 3.2vw, 36px); line-height: 1.2; }
+.marketing-installation-heading > p:last-child { max-width: 670px; margin: 18px 0 0; color: #65736b; font-size: 14px; line-height: 1.9; }
+.marketing-installation-source { margin: 24px 0 30px; padding: 16px 20px; border: 1px solid #d8e0d0; border-radius: 10px; background: #f0f3e9; color: #50615a; font-size: 13px; line-height: 1.8; }
+.marketing-installation-source strong { color: #18362e; }
+.marketing-installation-examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; list-style: none; padding: 0; margin: 0; }
+.marketing-installation-examples > li { min-width: 0; }
+.marketing-installation-examples figure { margin: 0; height: 100%; display: flex; flex-direction: column; }
+.marketing-installation-examples figcaption { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+.marketing-installation-number { display: inline-grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border: 1px solid #d8e0d0; border-radius: 50%; color: #506b46; font-size: 11px; }
+.marketing-installation-examples h3 { font-size: 17px; line-height: 1.5; }
+.marketing-installation-examples figcaption p { margin: 9px 0 0; color: #65736b; font-size: 13px; line-height: 1.85; }
+.marketing-installation-examples figcaption strong { color: #334e40; font-weight: 600; }
+.marketing-installation-image { display: block; margin-top: auto; border: 1px solid #d8dfd5; border-radius: 10px; background: #fcfcf8; overflow: hidden; text-decoration: none; }
+.marketing-installation-image img { display: block; width: 100%; height: auto; aspect-ratio: 534 / 494; object-fit: contain; background: #535598; }
+.marketing-installation-image > span { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 11px 16px; font-size: 11px; color: #50615a; }
+.marketing-installation-image:hover > span { color: #18362e; text-decoration: underline; text-underline-offset: 4px; }
+.marketing-installation-notes { max-width: 800px; margin-top: 24px; color: #65736b; font-size: 12px; line-height: 1.9; }
+.marketing-installation-notes p { margin: 0 0 10px; }
+.marketing-installation-reference { display: inline-block; padding-block: 10px; font-size: 11px; }
+@media (max-width: 760px) {
+  .marketing-installation-examples { grid-template-columns: 1fr; gap: 30px; max-width: 534px; }
+  .marketing-site .marketing-installation-help { padding: 34px 0 28px; }
+  .marketing-installation-source { padding: 14px 16px; }
+  .marketing-installation-examples figcaption { margin-bottom: 16px; }
+}
 .marketing-download-help { padding: 23px 0 72px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 13px; }
 .marketing-download-help p { margin: 0; color: #718169; }
 .marketing-download-help a { padding: 12px 0; }

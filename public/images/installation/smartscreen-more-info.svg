@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="534" height="494" viewBox="0 0 534 494" role="img" aria-labelledby="title description">
+  <title id="title">Pasul 1: More info</title>
+  <desc id="description">Ilustrație a avertizării Windows SmartScreen. Opțiunea More info, sub mesajul de avertizare, este încadrată cu galben.</desc>
+  <rect width="534" height="494" rx="3" fill="#535598"/>
+  <path d="M486 0h46v31h-46z" fill="#fff"/>
+  <path d="m505 10 9 10m0-10-9 10" fill="none" stroke="#111"/>
+  <g fill="#fff" font-family="Segoe UI, Arial, sans-serif">
+    <text x="20" y="49" font-size="28">Windows protected your PC</text>
+    <text x="20" y="92" font-size="14">Microsoft Defender SmartScreen prevented an unrecognized app from</text>
+    <text x="20" y="112" font-size="14">starting. Running this app might put your PC at risk.</text>
+    <text x="20" y="133" font-size="14" text-decoration="underline">More info</text>
+  </g>
+  <rect x="13" y="117" width="83" height="25" rx="3" fill="none" stroke="#ffe58b" stroke-width="3"/>
+  <path d="M135 129h-27m8-7-8 7 8 7" fill="none" stroke="#ffe58b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="410" y="437" width="94" height="36" fill="#fff"/>
+  <text x="457" y="460" fill="#111" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Don’t run</text>
+</svg>
