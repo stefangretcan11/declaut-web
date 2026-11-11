@@ -9,7 +9,7 @@ const releaseSchema = z.object({
   assets: z.array(z.object({ name: z.string(), browser_download_url: z.url() })),
 });
 const unavailable: ReleaseInfo = { latest_version: null, download_url: null };
-const HOUR = 3_600_000;
+const CACHE_TTL = 5 * 60_000;
 
 export function releaseOptions(env: Record<string, string | undefined> = process.env) {
   // Preview builds can opt in; production always stays on GitHub's stable feed.
@@ -32,7 +32,9 @@ export function createReleaseReader(
       const endpoint = options.includePrereleases ? "releases?per_page=30" : "releases/latest";
       const response = await fetcher(`https://api.github.com/repos/${repo}/${endpoint}`, {
         headers: { Accept: "application/vnd.github+json", "User-Agent": "declaut-license-api" },
-        next: { revalidate: 3600 },
+        // Keep one cache here so a framework cache cannot return old release data
+        // just as this reader's entry expires.
+        cache: "no-store",
         signal: AbortSignal.timeout(4000),
       });
       if (!response.ok) throw new Error("Release metadata unavailable");
@@ -50,7 +52,7 @@ export function createReleaseReader(
         throw new Error("Unexpected installer URL");
       }
       cached = { latest_version: release.tag_name.replace(/^v(?=\d)/, ""), download_url: download?.href ?? null };
-      retryAt = clock() + HOUR;
+      retryAt = clock() + CACHE_TTL;
       return cached;
     } catch {
       retryAt = clock() + 60_000;

@@ -4,16 +4,38 @@ import { createReleaseReader, releaseOptions } from "../src/lib/releases";
 
 const release = { tag_name: "v1.2.3", draft: false, prerelease: false, assets: [{ name: "Declaut-Setup.exe", browser_download_url: "https://github.com/example/releases/releases/download/v1.2.3/Declaut-Setup.exe" }] };
 
-test("Release metadata is cached for an hour; last success survives GitHub failure", async () => {
+test("Release metadata is cached for five minutes; last success survives GitHub failure", async () => {
   let now = 1;
   let calls = 0;
   const fetcher = (async () => { calls++; return calls === 1 ? Response.json(release) : new Response("", { status: 503 }); }) as typeof fetch;
   const read = createReleaseReader("example/releases", undefined, fetcher, () => now);
   assert.deepEqual(await read(), { latest_version: "1.2.3", download_url: release.assets[0].browser_download_url });
   await read(); assert.equal(calls, 1);
-  now += 3_600_001;
+  now += 300_001;
   assert.equal((await read()).latest_version, "1.2.3"); assert.equal(calls, 2);
   await read(); assert.equal(calls, 2);
+});
+
+test("A new stable release replaces the cached version and installer together after five minutes", async () => {
+  let now = 1;
+  let calls = 0;
+  const stable = (tag: string) => ({ ...release, tag_name: tag, assets: [{ name: "Declaut-Setup.exe", browser_download_url: `https://github.com/example/releases/releases/download/${tag}/Declaut-Setup.exe` }] });
+  let published = stable("v0.9.8");
+  const fetcher = (async (_url, options) => {
+    calls++;
+    assert.equal(options?.cache, "no-store");
+    return Response.json(published);
+  }) as typeof fetch;
+  const read = createReleaseReader("example/releases", "Declaut-Setup.exe", fetcher, () => now);
+  assert.deepEqual(await read(), { latest_version: "0.9.8", download_url: published.assets[0].browser_download_url });
+
+  published = stable("v1.0.0");
+  now += 299_999;
+  assert.equal((await read()).latest_version, "0.9.8");
+  assert.equal(calls, 1);
+  now++;
+  assert.deepEqual(await read(), { latest_version: "1.0.0", download_url: published.assets[0].browser_download_url });
+  assert.equal(calls, 2);
 });
 
 test("Missing repo and unavailable releases produce nullable metadata", async () => {

@@ -27,7 +27,7 @@ export function InstallationHelp() {
       <h2 id="smartscreen-title">Apare mesajul „Windows protected your PC”?</h2>
       <p>Windows poate afișa avertizarea SmartScreen când nu recunoaște încă o aplicație sau o versiune nouă. Mai jos vezi unde găsești opțiunile pentru a continua instalarea.</p>
     </header>
-    <p className="marketing-installation-source"><strong>Verifică sursa înainte să continui.</strong> Urmează acești pași doar pentru instalatorul Declaut descărcat folosind butonul de pe această pagină. Acesta duce la versiunea oficială de pe GitHub.</p>
+    <p className="marketing-installation-source"><strong>Verifică sursa înainte să continui.</strong> Urmează acești pași doar pentru instalatorul Declaut descărcat folosind butonul de pe această pagină.</p>
     <ol className="marketing-installation-examples">
       {steps.map((step, index) => <li key={step.image}>
         <figure>
