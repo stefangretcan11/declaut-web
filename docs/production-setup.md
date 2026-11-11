@@ -1,6 +1,6 @@
 # Lansarea producției Declaut
 
-Stare la **9 noiembrie 2026**: facturarea este manuală, gestionată de contabilul firmei. Migrațiile sunt aplicate, iar ultimul rezultat salvat al testului autentificat de licență este PASS pentru domeniul de producție. Acceptarea emailurilor, plăților și installerului rămâne separată; `desktopReleaseReady` rămâne `false`.
+Stare la **11 noiembrie 2026**: facturarea este manuală, gestionată de contabilul firmei. Migrațiile sunt aplicate, iar ultimul rezultat salvat al testului autentificat de licență este PASS pentru domeniul de producție. `desktopReleaseReady` este `true`, activat manual la cererea proprietarului. Acceptarea emailurilor, plăților și installerului rămâne separată; această modificare nu a executat testele de acceptare, iar `verifiedOn` rămâne `null`.
 
 ## Aplicat și configurat
 
