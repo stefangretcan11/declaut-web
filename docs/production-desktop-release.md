@@ -4,7 +4,7 @@ Status on **8 November 2026: acceptance pending**. The owner selected `https://w
 
 ## Public configuration
 
-[track-b-production-config.json](track-b-production-config.json) contains the public values to compile into the desktop production block once acceptance passes. `desktopReleaseReady` remains `false` and `verifiedOn` remains `null`.
+[track-b-production-config.json](track-b-production-config.json) contains the public values for the desktop production block. On **11 November 2026**, `desktopReleaseReady` was set to `true` at the owner's request. `verifiedOn` remains `null`: this change did not run the desktop acceptance checks described below.
 
 | Desktop setting | Production value |
 | --- | --- |

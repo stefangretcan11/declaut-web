@@ -1,7 +1,7 @@
 {
   "contract": "license-v1-proposed",
   "environment": "production",
-  "desktopReleaseReady": false,
+  "desktopReleaseReady": true,
   "websiteUrl": "https://www.declaut.ro",
   "apiBaseUrl": "https://www.declaut.ro",
   "supabaseUrl": "https://jdvurtohbypdlvkirnrm.supabase.co",
