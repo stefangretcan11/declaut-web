@@ -26,7 +26,7 @@ test("Romanian marketing routes, navigation and release availability work on des
   await expect(page.getByText("Atât Free, cât și Pro permit un singur dispozitiv activ pe cont.", { exact: false })).toBeVisible();
   if (process.env.GITHUB_RELEASES_REPO && process.env.GITHUB_RELEASE_CHANNEL === "preview" && process.env.LICENSE_ISSUER === "declaut-staging") {
     await page.goto("/descarcare");
-    await expect(page.getByRole("link", { name: "Descarcă instalatorul" })).toHaveAttribute("href", new RegExp(`^https://github\\.com/${process.env.GITHUB_RELEASES_REPO}/releases/download/`));
+    await expect(page.getByRole("link", { name: "Descarcă instalatorul" })).toHaveAttribute("href", "/api/download");
     await expect(page.locator(".marketing-release-channel")).toContainText("Canal de testare");
   }
   await page.goto("/");

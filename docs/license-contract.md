@@ -106,7 +106,9 @@ Pro's first activation includes a one-time **30-day free trial**, with a card co
 
 Set `GITHUB_RELEASES_REPO=mihaicostache1/declaut-release` and `GITHUB_RELEASE_ASSET_NAME=declaut-setup.exe`. By default, read GitHub's latest stable release. Staging may opt into `GITHUB_RELEASE_CHANNEL=preview`, selecting the newest published non-draft entry from the latest 30 releases, including prereleases but excluding tags containing `-pro` (case-insensitive). The option is honored only when the issuer is `declaut-staging`; production always uses the stable feed. Strip a leading `v` before a numeric version and preserve prerelease suffixes. Only credential-free HTTPS download URLs under the configured GitHub repository are accepted.
 
-Successful results are cached for one hour with Next.js fetch caching and an instance cache. Failed refreshes reuse the instance's last success when available, otherwise return null metadata; retries are throttled to one minute. A cold server instance may have no fallback.
+Successful results are cached for five minutes per server instance. GitHub requests bypass Next.js fetch caching, and the download page renders dynamically so older HTML cannot extend the metadata cache lifetime. The version and installer URL refresh together. Failed refreshes reuse the instance's last success when available, otherwise return null metadata; retries are throttled to one minute. A cold server instance may have no fallback.
+
+The website's download button uses the same-origin `/api/download` endpoint, which streams the installer without exposing the upstream repository URL in page markup or download response headers. This does not change `download_url` in the desktop license API, whose direct GitHub URL remains compatible with the existing desktop integration. The release repository remains public.
 
 ## Errors
 
